@@ -4,7 +4,7 @@ import { useState } from "react";
 
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Leaf, Truck, ShieldCheck, ArrowRight, ShoppingBag, X } from "lucide-react";
+import { Leaf, Truck, ShieldCheck, ArrowRight, ShoppingBag, X, Plus } from "lucide-react";
 
 import Image from "next/image";
 import { products } from "@/lib/data";
@@ -139,58 +139,36 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                         <motion.div
                             key={product.id}
                             whileHover={{ y: -8 }}
-                            className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all group flex flex-col relative mt-16"
+                            className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group hover:shadow-md transition-all"
                         >
-                            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-40">
-                                <div className="relative w-full h-full drop-shadow-xl filter">
-                                    <Image
-                                        src={product.image}
-                                        alt={product.name}
-                                        fill
-                                        className="object-cover rounded-2xl group-hover:-translate-y-2 transition-transform duration-500 mask-image-bottom-fade"
-                                        style={{
-                                            maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
-                                            WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)'
-                                        }}
-                                    />
-                                    <div className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
-                                        Best Seller
-                                    </div>
+                            <div className="aspect-[4/3] w-full relative">
+                                <Image
+                                    src={product.image}
+                                    alt={product.name}
+                                    fill
+                                    className="object-cover"
+                                />
+                                <div className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
+                                    Best Seller
                                 </div>
                             </div>
-                            <div className="flex-1 flex flex-col pt-24 text-center items-center">
-                                <h3 className="font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors tracking-tight text-xl mb-3">
+                            <div className="p-4 flex-1 flex flex-col text-left items-start">
+                                <h3 className="text-lg font-bold text-slate-900 tracking-tight line-clamp-1">
                                     {product.name}
                                 </h3>
-
-                                {/* Tags */}
-                                {product.tags && (
-                                    <div className="flex flex-wrap gap-2 justify-center mb-4">
-                                        {product.tags.map((tag, idx) => (
-                                            <span key={idx} className="bg-amber-100/50 text-amber-900/80 text-xs font-semibold px-3 py-1 rounded-full border border-amber-200/50 flex items-center gap-1">
-                                                {tag}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <p className="text-slate-500 text-sm line-clamp-3 mb-6 leading-relaxed">
+                                <p className="text-sm text-slate-500 line-clamp-2 mt-1">
                                     The top choice among all our customers, delicious, authentic and a part of an amazing experience!
                                 </p>
-
-                                <div className="mt-auto flex items-center w-full justify-between pt-4">
-                                    <div className="text-slate-800 font-extrabold text-2xl">
-                                        <span className="text-lg mr-0.5 tracking-tight font-bold opacity-80">₱</span>
-                                        {product.price}
+                                <div className="flex justify-between items-center mt-auto w-full pt-4">
+                                    <div className="text-lg font-extrabold text-emerald-700">
+                                        ₱{product.price}
                                     </div>
-
                                     <motion.button
                                         whileTap={{ scale: 0.95 }}
                                         onClick={() => setShowLoginModal(true)}
-                                        className="bg-[#C1E14E] text-emerald-950 font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-[#aacc3a] transition-colors shadow-sm"
+                                        className="bg-emerald-50 text-emerald-700 hover:bg-emerald-700 hover:text-white p-2.5 rounded-xl transition-colors"
                                     >
-                                        <ShoppingBag className="w-4 h-4" strokeWidth={2} />
-                                        Order Now
+                                        <Plus className="w-5 h-5" strokeWidth={2.5} />
                                     </motion.button>
                                 </div>
                             </div>

@@ -1,21 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShoppingBag, Leaf } from "lucide-react";
+import { Search, ShoppingBag, Leaf, Plus, User, Star, X } from "lucide-react";
 import Image from "next/image";
 import { products, categories, Product } from "@/lib/data";
+
+const promoSlides = [
+    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1000&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1000&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1000&auto=format&fit=crop"
+];
 
 interface DashboardViewProps {
     cartCount: number;
     onOpenCart: () => void;
     onAddToCart: (product: Product) => void;
+    onLogout: () => void;
 }
 
-export default function DashboardView({ cartCount, onOpenCart, onAddToCart }: DashboardViewProps) {
+export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLogout }: DashboardViewProps) {
     const [activeCategory, setActiveCategory] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
     const [showToast, setShowToast] = useState(false);
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [currentSlide, setCurrentSlide] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentSlide((prev) => (prev + 1) % promoSlides.length);
+        }, 3000);
+        return () => clearInterval(interval);
+    }, []);
 
     const filteredProducts = products.filter((p) => {
         const matchesCategory = activeCategory === "All" || p.category === activeCategory;
@@ -91,24 +107,67 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart }: Da
                         />
                     </div>
 
-                    <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={onOpenCart}
-                        className="relative w-12 h-12 bg-white rounded-full border border-emerald-100 flex items-center justify-center shrink-0 hover:bg-emerald-50 transition-colors"
-                    >
-                        <ShoppingBag className="w-6 h-6 text-slate-900" strokeWidth={1.5} />
-                        {cartCount > 0 && (
-                            <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-[10px] font-bold w-5 h-5 flex items-center justify-center border-2 border-white shadow-sm"
-                            >
-                                {cartCount}
-                            </motion.div>
-                        )}
-                    </motion.button>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <motion.button
+                            whileTap={{ scale: 0.9 }}
+                            onClick={onOpenCart}
+                            className="relative w-12 h-12 bg-white rounded-full border border-emerald-100 flex items-center justify-center hover:bg-emerald-50 transition-colors"
+                        >
+                            <ShoppingBag className="w-6 h-6 text-slate-900" strokeWidth={1.5} />
+                            {cartCount > 0 && (
+                                <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-[10px] font-bold w-5 h-5 flex items-center justify-center border-2 border-white shadow-sm"
+                                >
+                                    {cartCount}
+                                </motion.div>
+                            )}
+                        </motion.button>
+                        <motion.button
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setShowProfileModal(true)}
+                            className="relative w-12 h-12 bg-white rounded-full border border-emerald-100 flex items-center justify-center hover:bg-emerald-50 transition-colors"
+                        >
+                            <User className="w-6 h-6 text-slate-900" strokeWidth={1.5} />
+                        </motion.button>
+                    </div>
                 </div>
             </header>
+
+            {/* Promo Carousel */}
+            <section className="max-w-6xl mx-auto px-0 sm:px-6 pt-6 -mb-4">
+                <div className="relative w-full aspect-[21/9] sm:rounded-3xl overflow-hidden bg-slate-100 shadow-sm border-y sm:border border-slate-200">
+                    <AnimatePresence initial={false}>
+                        <motion.div
+                            key={currentSlide}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.5 }}
+                            className="absolute inset-0"
+                        >
+                            <Image
+                                src={promoSlides[currentSlide]}
+                                alt={`Promo ${currentSlide + 1}`}
+                                fill
+                                className="object-cover"
+                                priority
+                            />
+                        </motion.div>
+                    </AnimatePresence>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                        {promoSlides.map((_, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => setCurrentSlide(idx)}
+                                className={`h-2 rounded-full transition-all ${currentSlide === idx ? "w-6 bg-white" : "w-2 bg-white/50"
+                                    }`}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </section>
 
             {/* Categories Bar */}
             <section className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -147,60 +206,43 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart }: Da
                             <motion.div
                                 variants={itemVariants}
                                 key={product.id}
-                                className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all group flex flex-col relative mt-16"
+                                className="bg-white rounded-2xl border border-slate-200 shadow-md hover:shadow-lg transition-all overflow-hidden flex flex-row sm:flex-col group"
                             >
-                                <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-40">
-                                    <div className="relative w-full h-full drop-shadow-xl filter">
-                                        <Image
-                                            src={product.image}
-                                            alt={product.name}
-                                            fill
-                                            className="object-cover rounded-2xl group-hover:-translate-y-2 transition-transform duration-500 mask-image-bottom-fade"
-                                            style={{
-                                                maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
-                                                WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)'
-                                            }}
-                                        />
-                                        {product.isBestSeller && (
-                                            <div className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
-                                                Best Seller
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex-1 flex flex-col pt-24 text-center items-center">
-                                    <h3 className="font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors tracking-tight text-xl mb-3">
-                                        {product.name}
-                                    </h3>
-
-                                    {/* Tags */}
-                                    {product.tags && (
-                                        <div className="flex flex-wrap gap-2 justify-center mb-4">
-                                            {product.tags.map((tag, idx) => (
-                                                <span key={idx} className="bg-amber-100/50 text-amber-900/80 text-xs font-semibold px-3 py-1 rounded-full border border-amber-200/50 flex items-center gap-1">
-                                                    {tag}
-                                                </span>
-                                            ))}
+                                <div className="w-32 sm:w-full shrink-0 aspect-square sm:aspect-[4/3] relative">
+                                    <Image
+                                        src={product.image}
+                                        alt={product.name}
+                                        fill
+                                        className="object-cover"
+                                    />
+                                    {product.isBestSeller && (
+                                        <div className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
+                                            Best Seller
                                         </div>
                                     )}
-
-                                    <p className="text-slate-500 text-sm line-clamp-3 mb-6 leading-relaxed">
+                                </div>
+                                <div className="p-3 sm:p-4 flex-1 flex flex-col text-left items-start">
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight line-clamp-1">
+                                        {product.name}
+                                    </h3>
+                                    <div className="flex items-center gap-1 mt-1 mb-1">
+                                        <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                                        <span className="font-bold text-slate-700 text-sm">4.8</span>
+                                        <span className="text-slate-400 text-xs">(120+)</span>
+                                    </div>
+                                    <p className="text-xs sm:text-sm text-slate-500 line-clamp-2 mt-1">
                                         The top choice among all our customers, delicious, authentic and a part of an amazing experience!
                                     </p>
-
-                                    <div className="mt-auto flex items-center w-full justify-between pt-4">
-                                        <div className="text-slate-800 font-extrabold text-2xl">
-                                            <span className="text-lg mr-0.5 tracking-tight font-bold opacity-80">₱</span>
-                                            {product.price}
+                                    <div className="flex justify-between items-center mt-auto w-full pt-3 sm:pt-4">
+                                        <div className="text-base sm:text-lg font-extrabold text-emerald-700">
+                                            ₱{product.price}
                                         </div>
-
                                         <motion.button
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => handleAddToCart(product)}
-                                            className="bg-[#C1E14E] text-emerald-950 font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-[#aacc3a] transition-colors shadow-sm"
+                                            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-700 hover:text-white p-2 sm:p-2.5 rounded-xl transition-colors"
                                         >
-                                            <ShoppingBag className="w-4 h-4" strokeWidth={2} />
-                                            Add to cart
+                                            <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
                                         </motion.button>
                                     </div>
                                 </div>
@@ -217,6 +259,76 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart }: Da
                     </div>
                 )}
             </section>
+            {/* Profile Modal */}
+            <AnimatePresence>
+                {showProfileModal && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowProfileModal(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className="relative w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-2xl z-10"
+                        >
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">My Profile</h2>
+                                <button
+                                    onClick={() => setShowProfileModal(false)}
+                                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                                    <input
+                                        type="text"
+                                        defaultValue="Juan Dela Cruz"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-500 transition-all font-medium"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                                    <input
+                                        type="tel"
+                                        defaultValue="+63 912 345 6789"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-500 transition-all font-medium"
+                                    />
+                                </div>
+
+                                <div className="pt-2 flex flex-col gap-3">
+                                    <motion.button
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={() => setShowProfileModal(false)}
+                                        className="w-full bg-emerald-700 text-white font-semibold rounded-xl py-3 shadow-md shadow-emerald-700/20 hover:bg-emerald-800 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        Save Changes
+                                    </motion.button>
+
+                                    <motion.button
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={() => {
+                                            setShowProfileModal(false);
+                                            onLogout();
+                                        }}
+                                        className="w-full bg-red-50 text-red-600 font-bold rounded-xl py-3 hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        Logout
+                                    </motion.button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 }

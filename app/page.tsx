@@ -52,6 +52,7 @@ export default function Home() {
             cartCount={cartCount}
             onOpenCart={() => setIsCartOpen(true)}
             onAddToCart={handleAddToCart}
+            onLogout={() => setIsLoggedIn(false)}
           />
         )}
       </AnimatePresence>
