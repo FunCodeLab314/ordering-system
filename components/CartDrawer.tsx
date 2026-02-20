@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Minus, MapPin, CreditCard, Banknote, Calendar, CheckCircle2 } from "lucide-react";
+import { X, Plus, Minus, MapPin, CreditCard, Banknote, Calendar, CheckCircle2, Truck, Store, Map } from "lucide-react";
 import Image from "next/image";
 import { Product } from "@/lib/data";
 
@@ -25,11 +25,15 @@ export default function CartDrawer({
     onUpdateQuantity,
     onPlaceOrder,
 }: CartDrawerProps) {
-    const [isLocationPinned, setIsLocationPinned] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<string>("cod");
     const [showSuccess, setShowSuccess] = useState(false);
+    const [deliveryMode, setDeliveryMode] = useState<"delivery" | "pickup">("delivery");
+    const [showMapModal, setShowMapModal] = useState(false);
+    const [address, setAddress] = useState("Tap to set location map");
 
     const totalAmount = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    const shippingFee = deliveryMode === "delivery" ? 50 : 0;
+    const totalPayment = totalAmount + shippingFee;
 
     const handlePlaceOrder = () => {
         setShowSuccess(true);
@@ -126,6 +130,21 @@ export default function CartDrawer({
                                 <div className="space-y-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                                     <h3 className="text-lg font-bold tracking-tight text-slate-900">Order Details</h3>
 
+                                    <div className="flex bg-slate-100 p-1 rounded-xl mb-2">
+                                        <button
+                                            onClick={() => setDeliveryMode("delivery")}
+                                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${deliveryMode === "delivery" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                                        >
+                                            <Truck className="w-4 h-4" /> Delivery
+                                        </button>
+                                        <button
+                                            onClick={() => setDeliveryMode("pickup")}
+                                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${deliveryMode === "pickup" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                                        >
+                                            <Store className="w-4 h-4" /> Pick-up
+                                        </button>
+                                    </div>
+
                                     <div className="space-y-4">
                                         {/* Date Picker (Simulated) */}
                                         <div>
@@ -143,25 +162,27 @@ export default function CartDrawer({
                                         </div>
 
                                         {/* Location Pin */}
-                                        <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Drop-off Location</label>
-                                            <motion.button
-                                                whileTap={{ scale: 0.98 }}
-                                                onClick={() => setIsLocationPinned(!isLocationPinned)}
-                                                className={`w-full flex items-center justify-between py-3 px-4 rounded-xl border transition-colors ${isLocationPinned
-                                                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                                    }`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <MapPin className={`w-5 h-5 ${isLocationPinned ? "text-emerald-600" : "text-slate-400"}`} strokeWidth={1.5} />
-                                                    <span className="font-medium">
-                                                        {isLocationPinned ? "Santa Cruz, Laguna" : "Tap to set location"}
-                                                    </span>
+                                        {deliveryMode === "delivery" && (
+                                            <div>
+                                                <div className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Delivery Address</div>
+                                                <div
+                                                    onClick={() => setShowMapModal(true)}
+                                                    className="relative cursor-pointer rounded-xl overflow-hidden bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors"
+                                                >
+                                                    {/* Shopee-style stripe */}
+                                                    <div className="h-1 w-full" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #ef4444, #ef4444 10px, transparent 10px, transparent 20px, #3b82f6 20px, #3b82f6 30px, transparent 30px, transparent 40px)' }}></div>
+                                                    <div className="p-4 flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <MapPin className="w-5 h-5 text-emerald-600" strokeWidth={1.5} />
+                                                            <span className="font-medium text-slate-700">
+                                                                {address}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-xs font-semibold text-slate-400">EDIT</span>
+                                                    </div>
                                                 </div>
-                                                {isLocationPinned && <CheckCircle2 className="w-5 h-5 text-emerald-600" strokeWidth={1.5} />}
-                                            </motion.button>
-                                        </div>
+                                            </div>
+                                        )}
 
                                         {/* Payment Method */}
                                         <div>
@@ -204,20 +225,76 @@ export default function CartDrawer({
                         {/* Footer with sticky CTA */}
                         {cartItems.length > 0 && (
                             <div className="p-6 bg-white border-t border-slate-100 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] shrink-0 z-10">
-                                <div className="flex justify-between items-center mb-4">
-                                    <span className="text-slate-500 font-medium">Subtotal</span>
-                                    <span className="text-xl font-bold text-slate-900">₱{totalAmount}</span>
+                                <div className="space-y-2 mb-4">
+                                    <div className="flex justify-between items-center text-sm text-slate-500">
+                                        <span>Merchandise Subtotal</span>
+                                        <span>₱{totalAmount}</span>
+                                    </div>
+                                    {deliveryMode === "delivery" && (
+                                        <div className="flex justify-between items-center text-sm text-slate-500">
+                                            <span>Shipping Fee</span>
+                                            <span>₱{shippingFee}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center font-bold text-lg text-slate-900 border-t border-slate-100 pt-3 mt-2">
+                                        <span>Total Payment</span>
+                                        <span className="text-emerald-700">₱{totalPayment}</span>
+                                    </div>
                                 </div>
                                 <motion.button
                                     whileTap={{ scale: 0.96 }}
                                     onClick={handlePlaceOrder}
                                     className="w-full bg-emerald-700 text-white font-semibold rounded-full py-4 shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-colors flex items-center justify-center gap-2 text-lg"
                                 >
-                                    Place Order - ₱{totalAmount}
+                                    Place Order - ₱{totalPayment}
                                 </motion.button>
                             </div>
                         )}
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Map Simulation Modal */}
+            <AnimatePresence>
+                {showMapModal && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowMapModal(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className="relative w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl z-10 flex flex-col items-center"
+                        >
+                            <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4 w-full text-left">Pin Location</h3>
+                            <div className="relative w-full h-48 rounded-2xl overflow-hidden bg-emerald-50 mb-6 border border-slate-100">
+                                <Image
+                                    src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=800&auto=format&fit=crop"
+                                    alt="Map Simulation"
+                                    fill
+                                    className="object-cover opacity-80 mix-blend-multiply"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <MapPin className="w-10 h-10 text-emerald-600 drop-shadow-md -mt-5" strokeWidth={2} fill="white" />
+                                </div>
+                            </div>
+                            <motion.button
+                                whileTap={{ scale: 0.96 }}
+                                onClick={() => {
+                                    setAddress("Santa Cruz, Laguna");
+                                    setShowMapModal(false);
+                                }}
+                                className="w-full bg-emerald-700 text-white font-semibold rounded-xl py-3 shadow-md shadow-emerald-700/20 hover:bg-emerald-800 transition-colors"
+                            >
+                                Confirm Location
+                            </motion.button>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
 

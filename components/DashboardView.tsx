@@ -119,8 +119,8 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart }: Da
                             key={category}
                             onClick={() => setActiveCategory(category)}
                             className={`whitespace-nowrap rounded-full px-6 py-2.5 font-semibold text-sm transition-colors border ${activeCategory === category
-                                    ? "bg-emerald-700 text-white border-emerald-700"
-                                    : "bg-white text-slate-600 border-slate-200 hover:border-emerald-200 hover:bg-emerald-50"
+                                ? "bg-emerald-700 text-white border-emerald-700"
+                                : "bg-white text-slate-600 border-slate-200 hover:border-emerald-200 hover:bg-emerald-50"
                                 }`}
                         >
                             {category}
@@ -147,42 +147,60 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart }: Da
                             <motion.div
                                 variants={itemVariants}
                                 key={product.id}
-                                className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 hover:shadow-md transition-all group flex flex-col"
+                                className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all group flex flex-col relative mt-16"
                             >
-                                <div className="relative aspect-square rounded-xl overflow-hidden mb-4 bg-slate-50">
-                                    <Image
-                                        src={product.image}
-                                        alt={product.name}
-                                        fill
-                                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                                    />
-                                    {product.isBestSeller && (
-                                        <div className="absolute top-3 right-3 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
-                                            Best Seller
+                                <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-40">
+                                    <div className="relative w-full h-full drop-shadow-xl filter">
+                                        <Image
+                                            src={product.image}
+                                            alt={product.name}
+                                            fill
+                                            className="object-cover rounded-2xl group-hover:-translate-y-2 transition-transform duration-500 mask-image-bottom-fade"
+                                            style={{
+                                                maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
+                                                WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)'
+                                            }}
+                                        />
+                                        {product.isBestSeller && (
+                                            <div className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
+                                                Best Seller
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex-1 flex flex-col pt-24 text-center items-center">
+                                    <h3 className="font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors tracking-tight text-xl mb-3">
+                                        {product.name}
+                                    </h3>
+
+                                    {/* Tags */}
+                                    {product.tags && (
+                                        <div className="flex flex-wrap gap-2 justify-center mb-4">
+                                            {product.tags.map((tag, idx) => (
+                                                <span key={idx} className="bg-amber-100/50 text-amber-900/80 text-xs font-semibold px-3 py-1 rounded-full border border-amber-200/50 flex items-center gap-1">
+                                                    {tag}
+                                                </span>
+                                            ))}
                                         </div>
                                     )}
-                                </div>
-                                <div className="flex-1 flex flex-col">
-                                    <div className="flex justify-between items-start gap-2 mb-2">
-                                        <h3 className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors tracking-tight line-clamp-2">
-                                            {product.name}
-                                        </h3>
-                                    </div>
-                                    <p className="text-slate-500 text-sm line-clamp-2 mb-3">{product.description}</p>
 
-                                    <div className="mt-auto flex items-end justify-between pt-4 border-t border-slate-100">
-                                        <div className="text-emerald-700 font-bold text-lg">
-                                            <span className="text-sm font-semibold opacity-80 mr-1">₱</span>
+                                    <p className="text-slate-500 text-sm line-clamp-3 mb-6 leading-relaxed">
+                                        The top choice among all our customers, delicious, authentic and a part of an amazing experience!
+                                    </p>
+
+                                    <div className="mt-auto flex items-center w-full justify-between pt-4">
+                                        <div className="text-slate-800 font-extrabold text-2xl">
+                                            <span className="text-lg mr-0.5 tracking-tight font-bold opacity-80">₱</span>
                                             {product.price}
                                         </div>
 
                                         <motion.button
-                                            whileTap={{ scale: 0.9 }}
+                                            whileTap={{ scale: 0.95 }}
                                             onClick={() => handleAddToCart(product)}
-                                            className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center hover:bg-emerald-700 hover:text-white transition-colors"
-                                            title="Add to Cart"
+                                            className="bg-[#C1E14E] text-emerald-950 font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-[#aacc3a] transition-colors shadow-sm"
                                         >
-                                            <ShoppingBag className="w-5 h-5" strokeWidth={1.5} />
+                                            <ShoppingBag className="w-4 h-4" strokeWidth={2} />
+                                            Add to cart
                                         </motion.button>
                                     </div>
                                 </div>

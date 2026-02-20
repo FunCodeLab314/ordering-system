@@ -6,6 +6,7 @@ export type Product = {
     image: string;
     category: string;
     isBestSeller?: boolean;
+    tags?: string[];
 };
 
 export const products: Product[] = [
@@ -17,6 +18,7 @@ export const products: Product[] = [
         image: "https://images.unsplash.com/photo-1541580621-07f3dcfa89fd?q=80&w=800&auto=format&fit=crop",
         category: "Kakanin",
         isBestSeller: true,
+        tags: ["🥥 Coconut", "🍚 Sticky Rice"]
     },
     {
         id: "p2",
@@ -26,6 +28,7 @@ export const products: Product[] = [
         image: "https://images.unsplash.com/photo-1551879400-111a9087cd86?q=80&w=800&auto=format&fit=crop",
         category: "Kakanin",
         isBestSeller: true,
+        tags: ["🌴 Ube", "🥥 Coconut"]
     },
     {
         id: "p3",
@@ -35,6 +38,7 @@ export const products: Product[] = [
         image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=800&auto=format&fit=crop",
         category: "Kakanin",
         isBestSeller: true,
+        tags: ["💜 Purple Yam", "🧈 Butter"]
     },
     {
         id: "p4",
@@ -43,6 +47,7 @@ export const products: Product[] = [
         price: 90,
         image: "https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?q=80&w=800&auto=format&fit=crop",
         category: "Suman",
+        tags: ["🍌 Banana Leaf", "🍬 Caramel"]
     },
     {
         id: "p5",
@@ -51,6 +56,7 @@ export const products: Product[] = [
         price: 110,
         image: "https://images.unsplash.com/photo-1605807646983-377bc5a76493?q=80&w=800&auto=format&fit=crop",
         category: "Suman",
+        tags: ["🍫 Chocolate", "🍦 Vanilla"]
     },
     {
         id: "p6",
@@ -59,6 +65,7 @@ export const products: Product[] = [
         price: 80,
         image: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?q=80&w=800&auto=format&fit=crop",
         category: "Kakanin",
+        tags: ["🌾 Lye", "🥥 Coconut"]
     },
     {
         id: "p7",
@@ -67,6 +74,7 @@ export const products: Product[] = [
         price: 850,
         image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80&w=800&auto=format&fit=crop",
         category: "Party Trays",
+        tags: ["👨‍👩‍👧‍👦 Family Size", "🎉 Party"]
     },
     {
         id: "p8",
@@ -76,6 +84,7 @@ export const products: Product[] = [
         image: "https://images.unsplash.com/photo-1587241321921-91a834d6d191?q=80&w=800&auto=format&fit=crop",
         category: "Kakanin",
         isBestSeller: true,
+        tags: ["🧀 Cheese", "🥥 Coconut Milk"]
     }
 ];
 
