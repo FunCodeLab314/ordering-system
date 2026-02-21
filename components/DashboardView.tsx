@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShoppingBag, Leaf, ShoppingCart, User, Star, X, MapPin, CreditCard, Settings, HelpCircle, ChevronRight, Store, ReceiptText, Truck, Bell, MessageCircle, Send } from "lucide-react";
+import { Search, ShoppingBag, Leaf, ShoppingCart, User, Star, X, MapPin, CreditCard, Settings, HelpCircle, ChevronRight, Store, ReceiptText, Truck, Bell, MessageCircle, Send, ArrowLeft, Headphones } from "lucide-react";
 import Image from "next/image";
 import { products, categories, Product } from "@/lib/data";
 import LocationPicker from "./LocationPicker";
@@ -115,13 +115,22 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
 
                     <div className="flex items-center gap-3 shrink-0">
                         {/* Chat Button */}
-                        <div className="relative hidden md:block">
+                        <div className="relative">
                             <motion.button
                                 whileTap={{ scale: 0.9 }}
-                                onClick={() => { setShowNotifications(false); setShowChat(!showChat); }}
+                                onClick={() => {
+                                    if (window.innerWidth < 768) {
+                                        setActiveTab("chat");
+                                    } else {
+                                        setShowNotifications(false);
+                                        setShowChat(!showChat);
+                                    }
+                                }}
                                 className="relative w-12 h-12 bg-white rounded-full border border-emerald-100 flex items-center justify-center hover:bg-emerald-50 transition-colors"
+                                aria-label="Support"
+                                title="Support"
                             >
-                                <MessageCircle className="w-6 h-6 text-slate-900" strokeWidth={1.5} />
+                                <Headphones className="w-6 h-6 text-slate-900" strokeWidth={1.5} />
                             </motion.button>
 
                             <AnimatePresence>
@@ -457,10 +466,73 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
             )}
 
             {activeTab === "orders" && (
-                <section className="max-w-6xl mx-auto px-4 sm:px-6 py-32 flex flex-col items-center justify-center text-center">
-                    <ReceiptText className="w-16 h-16 text-slate-200 mb-4" />
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">No active orders</h2>
-                    <p className="text-slate-500 mt-2">Hungry? Check out our menu and place an order.</p>
+                <section className="max-w-2xl mx-auto px-4 sm:px-6 py-8 min-h-[calc(100vh-80px)]">
+                    {/* Order Card */}
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 mt-4">
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-900 tracking-tight">Order #ORD-20241024</h2>
+                                <p className="text-slate-500 text-sm mt-1 font-medium">Cash on Delivery • ₱370.00</p>
+                            </div>
+                            <div className="bg-emerald-50 text-emerald-700 font-bold px-3 py-1.5 rounded-full text-xs border border-emerald-100 uppercase tracking-wider">
+                                Preparing
+                            </div>
+                        </div>
+                        <div className="pt-4 border-t border-slate-100">
+                            <p className="font-bold text-slate-800">Classic Biko x1, Cassava Cake x1</p>
+                            <p className="text-slate-500 text-xs mt-1 font-medium">Estimated delivery: 3 days from order date</p>
+                        </div>
+                    </div>
+
+                    {/* Order Tracker Stepper */}
+                    <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.08)] border border-slate-100 mb-20">
+                        <h3 className="text-lg font-black text-slate-900 mb-8 w-full text-left tracking-tight">Track Order</h3>
+                        <div className="relative">
+                            {[
+                                { title: "Order Placed", desc: "We received your order", time: "Oct 24, 10:00 AM", status: "completed" },
+                                { title: "Payment Confirmed", desc: "Your payment has been verified", time: "Oct 24, 10:05 AM", status: "completed" },
+                                { title: "Preparing", desc: "Ate Ai is now preparing your kakanin", time: "Oct 24, 10:15 AM", status: "active" },
+                                { title: "Out for Delivery", desc: "Your rider is on the way", time: "Est. Oct 27, 2:00 PM", status: "upcoming" },
+                                { title: "Delivered", desc: "Enjoy your order!", time: "Est. Oct 27, 3:00 PM", status: "upcoming" },
+                            ].map((step, idx, arr) => (
+                                <div key={idx} className="relative flex">
+                                    {/* Connector Line */}
+                                    {idx !== arr.length - 1 && (
+                                        <div className={`absolute left-[11px] top-6 bottom-[-8px] w-[2px] ${step.status === 'completed' ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+                                    )}
+
+                                    <div className="relative z-10 shrink-0 mt-1">
+                                        {step.status === "completed" && (
+                                            <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center ring-4 ring-white shadow-sm">
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                        {step.status === "active" && (
+                                            <div className="w-6 h-6 rounded-full bg-white border-2 border-emerald-500 flex items-center justify-center ring-4 ring-white shadow-sm">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                            </div>
+                                        )}
+                                        {step.status === "upcoming" && (
+                                            <div className="w-6 h-6 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center ring-4 ring-white"></div>
+                                        )}
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className={`ml-4 flex items-start justify-between w-full ${idx === arr.length - 1 ? '' : 'pb-8'}`}>
+                                        <div className="pr-4">
+                                            <h4 className={`font-bold text-[15px] ${step.status === 'upcoming' ? 'text-slate-400' : 'text-slate-900'}`}>{step.title}</h4>
+                                            <p className={`text-[13px] mt-0.5 leading-tight ${step.status === 'upcoming' ? 'text-slate-400' : 'text-slate-500'}`}>{step.desc}</p>
+                                        </div>
+                                        <div className={`text-right text-[11px] mt-1 whitespace-nowrap shrink-0 ${step.status === 'upcoming' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
+                                            {step.time}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </section>
             )}
 
@@ -583,10 +655,17 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
             {activeTab === "custom-order" && (
                 <section className="block max-w-xl mx-auto bg-slate-50 h-[calc(100vh-80px)] md:h-[calc(100vh-80px-70px)] flex flex-col pt-0 pb-0">
                     <div className="bg-emerald-800 p-4 border-b border-emerald-900 flex items-center gap-3 sticky top-20 z-10 shadow-sm text-white">
+                        <button
+                            onClick={() => setActiveTab("home")}
+                            className="hidden md:flex p-2 -ml-2 mr-1 hover:bg-emerald-700/50 rounded-full transition-colors"
+                            aria-label="Go back to menu"
+                        >
+                            <ArrowLeft className="w-5 h-5 text-white" />
+                        </button>
                         <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
                             <Store className="w-5 h-5 text-white" strokeWidth={1.5} />
                         </div>
-                        <div>
+                        <div className="flex-1">
                             <h3 className="font-bold">Custom Order Request</h3>
                             <div className="flex items-center gap-1.5 text-xs text-emerald-100">
                                 Let's discuss your special request!
@@ -630,7 +709,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                 {[
                     { id: "home", label: "Home", icon: Store },
                     { id: "orders", label: "Orders", icon: ReceiptText },
-                    { id: "chat", label: "Message", icon: MessageCircle },
+                    { id: "notifications", label: "Notifications", icon: Bell },
                     { id: "profile", label: "Account", icon: User },
                 ].map((tab) => {
                     const isActive = activeTab === tab.id;
