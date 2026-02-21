@@ -40,7 +40,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [showMapModal, setShowMapModal] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
-    const [activeTab, setActiveTab] = useState<"home" | "orders" | "profile" | "notifications" | "chat">("home");
+    const [activeTab, setActiveTab] = useState<"home" | "orders" | "profile" | "notifications" | "chat" | "custom-order">("home");
     const [savedPlaces, setSavedPlaces] = useState<string>("Pin a location to save your place.");
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -283,8 +283,8 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
             {activeTab === "home" && (
                 <>
                     {/* Promo Carousel */}
-                    <section className="max-w-6xl mx-auto px-0 sm:px-6 pt-6 -mb-4">
-                        <div className="relative w-full aspect-[21/9] sm:rounded-3xl overflow-hidden bg-slate-100 shadow-sm border-y sm:border border-slate-200">
+                    <section className="max-w-6xl mx-auto px-0 sm:px-6 pt-8 pb-6">
+                        <div className="relative w-full h-32 md:h-[120px] md:max-w-[800px] mx-auto sm:rounded-2xl overflow-hidden bg-slate-100 shadow-sm border-y sm:border border-slate-200">
                             <AnimatePresence initial={false}>
                                 <motion.div
                                     key={currentSlide}
@@ -303,12 +303,12 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                                     />
                                 </motion.div>
                             </AnimatePresence>
-                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
                                 {promoSlides.map((_, idx) => (
                                     <button
                                         key={idx}
                                         onClick={() => setCurrentSlide(idx)}
-                                        className={`h-2 rounded-full transition-all ${currentSlide === idx ? "w-6 bg-white" : "w-2 bg-white/50"
+                                        className={`h-1.5 rounded-full transition-all ${currentSlide === idx ? "w-6 bg-white" : "w-1.5 bg-white/50"
                                             }`}
                                     />
                                 ))}
@@ -317,14 +317,14 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                     </section>
 
                     {/* Categories Bar */}
-                    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-                        <div className="flex overflow-x-auto pb-4 -mb-4 gap-3 hide-scrollbar">
+                    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+                        <div className="flex overflow-x-auto pb-4 -mb-4 gap-1.5 hide-scrollbar items-center">
                             {categories.map((category) => (
                                 <motion.button
                                     whileTap={{ scale: 0.96 }}
                                     key={category}
                                     onClick={() => setActiveCategory(category)}
-                                    className={`whitespace-nowrap rounded-full px-6 py-2.5 font-semibold text-sm transition-colors border ${activeCategory === category
+                                    className={`whitespace-nowrap rounded-full px-4 py-2 font-semibold text-sm transition-colors border ${activeCategory === category
                                         ? "bg-emerald-700 text-white border-emerald-700"
                                         : "bg-white text-slate-600 border-slate-200 hover:border-emerald-200 hover:bg-emerald-50"
                                         }`}
@@ -332,6 +332,15 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                                     {category}
                                 </motion.button>
                             ))}
+                            <div className="w-[1px] h-6 bg-slate-200 mx-0.5 shrink-0"></div>
+                            <motion.button
+                                whileTap={{ scale: 0.96 }}
+                                onClick={() => setActiveTab("custom-order")}
+                                className="whitespace-nowrap rounded-full px-4 py-2 font-semibold text-sm transition-colors border border-emerald-700 bg-emerald-50 text-emerald-800 flex items-center gap-1.5 hover:bg-emerald-100 shrink-0"
+                            >
+                                <MessageCircle className="w-4 h-4" />
+                                Custom Order
+                            </motion.button>
                         </div>
                     </section>
 
@@ -567,6 +576,51 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                         >
                             <Send className="w-4 h-4 text-white ml-0.5" strokeWidth={2} />
                         </motion.button>
+                    </div>
+                </section>
+            )}
+
+            {activeTab === "custom-order" && (
+                <section className="block max-w-xl mx-auto bg-slate-50 h-[calc(100vh-80px)] md:h-[calc(100vh-80px-70px)] flex flex-col pt-0 pb-0">
+                    <div className="bg-emerald-800 p-4 border-b border-emerald-900 flex items-center gap-3 sticky top-20 z-10 shadow-sm text-white">
+                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                            <Store className="w-5 h-5 text-white" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold">Custom Order Request</h3>
+                            <div className="flex items-center gap-1.5 text-xs text-emerald-100">
+                                Let's discuss your special request!
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                        <div className="flex justify-start">
+                            <div className="max-w-[85%] rounded-2xl p-3 shadow-sm bg-white border border-slate-100 text-slate-800 rounded-tl-sm">
+                                <p className="text-sm font-semibold mb-2">Welcome to Custom Orders!</p>
+                                <p className="text-sm text-slate-600">Please let us know the details of your request (e.g., specific flavors, bulk quanties, dietary restrictions).</p>
+                                <span className="text-[10px] block mt-2 text-slate-400">Just now</span>
+                            </div>
+                        </div>
+                        {/* We reuse dummyChatMessages or chatMessage state here for a simple implementation */}
+                        {chatMessage.trim().length > 0 && false /* Hiding until sent, actually let's just use a separate state or dummy UI */}
+                    </div>
+                    <div className="p-4 border-t border-slate-100 bg-white flex flex-col gap-3 sticky bottom-[calc(env(safe-area-inset-bottom)+50px)] md:bottom-0">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                placeholder="Describe your custom order..."
+                                value={chatMessage}
+                                onChange={(e) => setChatMessage(e.target.value)}
+                                className="flex-1 bg-slate-100 border-transparent rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:bg-white transition-all placeholder:text-slate-400"
+                            />
+                            <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => { if (chatMessage.trim()) setChatMessage(""); }}
+                                className="w-12 h-12 bg-emerald-800 rounded-xl flex items-center justify-center shrink-0 hover:bg-emerald-900 transition-colors shadow-sm"
+                            >
+                                <Send className="w-5 h-5 text-white ml-0.5" strokeWidth={1.5} />
+                            </motion.button>
+                        </div>
                     </div>
                 </section>
             )}
