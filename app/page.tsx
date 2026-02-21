@@ -11,6 +11,7 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [shouldRedirectToOrders, setShouldRedirectToOrders] = useState(false);
 
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -39,6 +40,7 @@ export default function Home() {
   const handlePlaceOrder = () => {
     setCartItems([]);
     setIsCartOpen(false);
+    setShouldRedirectToOrders(true);
   };
 
   return (
@@ -53,6 +55,8 @@ export default function Home() {
             onOpenCart={() => setIsCartOpen(true)}
             onAddToCart={handleAddToCart}
             onLogout={() => setIsLoggedIn(false)}
+            shouldRedirectToOrders={shouldRedirectToOrders}
+            onRedirectHandled={() => setShouldRedirectToOrders(false)}
           />
         )}
       </AnimatePresence>

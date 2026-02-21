@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShoppingBag, Leaf, ShoppingCart, User, Star, X, MapPin, CreditCard, Settings, HelpCircle, ChevronRight, Store, ReceiptText, Truck, Bell, MessageCircle, Send, ArrowLeft, Headphones } from "lucide-react";
+import { Search, ShoppingBag, Leaf, ShoppingCart, User, Star, X, MapPin, CreditCard, Settings, HelpCircle, ChevronRight, Store, ReceiptText, Truck, Bell, MessageCircle, Send, ArrowLeft, Headset } from "lucide-react";
 import Image from "next/image";
 import { products, categories, Product } from "@/lib/data";
 import LocationPicker from "./LocationPicker";
@@ -31,9 +31,11 @@ interface DashboardViewProps {
     onOpenCart: () => void;
     onAddToCart: (product: Product) => void;
     onLogout: () => void;
+    shouldRedirectToOrders?: boolean;
+    onRedirectHandled?: () => void;
 }
 
-export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLogout }: DashboardViewProps) {
+export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLogout, shouldRedirectToOrders, onRedirectHandled }: DashboardViewProps) {
     const [activeCategory, setActiveCategory] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
     const [showToast, setShowToast] = useState(false);
@@ -46,6 +48,16 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
     const [showNotifications, setShowNotifications] = useState(false);
     const [showChat, setShowChat] = useState(false);
     const [chatMessage, setChatMessage] = useState("");
+    const [orderAnimKey, setOrderAnimKey] = useState(0);
+    const [expandedOrder, setExpandedOrder] = useState<string | null>("ORD-20241024");
+
+    useEffect(() => {
+        if (shouldRedirectToOrders) {
+            setActiveTab("orders");
+            setOrderAnimKey(prev => prev + 1);
+            if (onRedirectHandled) onRedirectHandled();
+        }
+    }, [shouldRedirectToOrders, onRedirectHandled]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -114,88 +126,6 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
-                        {/* Chat Button */}
-                        <div className="relative">
-                            <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => {
-                                    if (window.innerWidth < 768) {
-                                        setActiveTab("chat");
-                                    } else {
-                                        setShowNotifications(false);
-                                        setShowChat(!showChat);
-                                    }
-                                }}
-                                className="relative w-12 h-12 bg-white rounded-full border border-emerald-100 flex items-center justify-center hover:bg-emerald-50 transition-colors"
-                                aria-label="Support"
-                                title="Support"
-                            >
-                                <Headphones className="w-6 h-6 text-slate-900" strokeWidth={1.5} />
-                            </motion.button>
-
-                            <AnimatePresence>
-                                {showChat && (
-                                    <>
-                                        <div className="fixed inset-0 z-40" onClick={() => setShowChat(false)} />
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            className="absolute right-0 top-16 w-80 sm:w-96 bg-white rounded-2xl shadow-xl z-50 border border-slate-100 overflow-hidden flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.16)] text-left"
-                                        >
-                                            <div className="p-4 bg-emerald-700 flex justify-between items-center text-white">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-                                                        <Leaf className="w-5 h-5 text-white" strokeWidth={1.5} />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold">Ate Ai's Support</h3>
-                                                        <div className="flex items-center gap-1.5 text-xs text-emerald-100">
-                                                            <span className="w-2 h-2 rounded-full bg-green-400"></span> Online
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <button onClick={() => setShowChat(false)} className="text-white hover:text-emerald-200 transition-colors p-1 rounded-full hover:bg-emerald-800">
-                                                    <X className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                            <div className="h-80 overflow-y-auto p-4 bg-slate-50 flex flex-col gap-4">
-                                                {dummyChatMessages.map(msg => (
-                                                    <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-                                                        <div className={`max-w-[80%] rounded-2xl p-3 shadow-sm ${msg.sender === "user" ? "bg-emerald-600 text-white rounded-tr-sm" : "bg-white border border-slate-100 text-slate-800 rounded-tl-sm"}`}>
-                                                            <p className="text-sm">{msg.text}</p>
-                                                            <span className={`text-[10px] block mt-1 ${msg.sender === "user" ? "text-emerald-200 text-right" : "text-slate-400"}`}>{msg.time}</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="p-4 border-t border-slate-100 bg-white flex items-center gap-2">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Type a message..."
-                                                    value={chatMessage}
-                                                    onChange={(e) => setChatMessage(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === "Enter" && chatMessage.trim()) {
-                                                            setChatMessage("");
-                                                        }
-                                                    }}
-                                                    className="flex-1 bg-slate-100 border-transparent rounded-full px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:bg-white transition-all placeholder:text-slate-400"
-                                                />
-                                                <motion.button
-                                                    whileTap={{ scale: 0.9 }}
-                                                    onClick={() => { if (chatMessage.trim()) setChatMessage(""); }}
-                                                    className="w-10 h-10 bg-emerald-700 rounded-full flex items-center justify-center shrink-0 hover:bg-emerald-800 transition-colors shadow-sm shadow-emerald-700/20"
-                                                >
-                                                    <Send className="w-4 h-4 text-white ml-0.5" strokeWidth={2} />
-                                                </motion.button>
-                                            </div>
-                                        </motion.div>
-                                    </>
-                                )}
-                            </AnimatePresence>
-                        </div>
-
                         {/* Notifications Button */}
                         <div className="relative block">
                             <motion.button
@@ -466,74 +396,183 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
             )}
 
             {activeTab === "orders" && (
-                <section className="max-w-2xl mx-auto px-4 sm:px-6 py-8 min-h-[calc(100vh-80px)]">
-                    {/* Order Card */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 mt-4">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h2 className="text-xl font-black text-slate-900 tracking-tight">Order #ORD-20241024</h2>
-                                <p className="text-slate-500 text-sm mt-1 font-medium">Cash on Delivery • ₱370.00</p>
-                            </div>
-                            <div className="bg-emerald-50 text-emerald-700 font-bold px-3 py-1.5 rounded-full text-xs border border-emerald-100 uppercase tracking-wider">
-                                Preparing
-                            </div>
-                        </div>
-                        <div className="pt-4 border-t border-slate-100">
-                            <p className="font-bold text-slate-800">Classic Biko x1, Cassava Cake x1</p>
-                            <p className="text-slate-500 text-xs mt-1 font-medium">Estimated delivery: 3 days from order date</p>
-                        </div>
-                    </div>
+                <motion.section
+                    key={orderAnimKey}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="max-w-2xl mx-auto px-4 sm:px-6 py-8 min-h-[calc(100vh-80px)]"
+                >
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-6">Your Orders</h2>
 
-                    {/* Order Tracker Stepper */}
-                    <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.08)] border border-slate-100 mb-20">
-                        <h3 className="text-lg font-black text-slate-900 mb-8 w-full text-left tracking-tight">Track Order</h3>
-                        <div className="relative">
-                            {[
-                                { title: "Order Placed", desc: "We received your order", time: "Oct 24, 10:00 AM", status: "completed" },
-                                { title: "Payment Confirmed", desc: "Your payment has been verified", time: "Oct 24, 10:05 AM", status: "completed" },
-                                { title: "Preparing", desc: "Ate Ai is now preparing your kakanin", time: "Oct 24, 10:15 AM", status: "active" },
-                                { title: "Out for Delivery", desc: "Your rider is on the way", time: "Est. Oct 27, 2:00 PM", status: "upcoming" },
-                                { title: "Delivered", desc: "Enjoy your order!", time: "Est. Oct 27, 3:00 PM", status: "upcoming" },
-                            ].map((step, idx, arr) => (
-                                <div key={idx} className="relative flex">
-                                    {/* Connector Line */}
-                                    {idx !== arr.length - 1 && (
-                                        <div className={`absolute left-[11px] top-6 bottom-[-8px] w-[2px] ${step.status === 'completed' ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+                    {[
+                        {
+                            id: "ORD-20241024",
+                            items: "Classic Biko x1, Cassava Cake x1",
+                            price: "370.00",
+                            method: "Cash on Delivery",
+                            status: "Preparing",
+                            estDelivery: "3 days from order date"
+                        },
+                        {
+                            id: "ORD-20240915",
+                            items: "Puto Cheese x2, Kutsinta x1",
+                            price: "250.00",
+                            method: "GCash",
+                            status: "Delivered",
+                            estDelivery: "Delivered on Sep 18"
+                        }
+                    ].map((order, orderIdx) => {
+                        const isExpanded = expandedOrder === order.id;
+
+                        return (
+                            <div key={order.id} className="mb-6">
+                                {/* Order Card Header */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.1 + orderIdx * 0.1 }}
+                                    onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                                    className={`bg-white p-6 shadow-sm border border-slate-100 cursor-pointer transition-all hover:shadow-md ${isExpanded ? 'rounded-t-3xl border-b-0' : 'rounded-3xl'}`}
+                                >
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Order #{order.id}</h3>
+                                            <p className="text-slate-500 text-sm mt-1 font-medium">{order.method} • ₱{order.price}</p>
+                                        </div>
+                                        <div className={`font-bold px-3 py-1.5 rounded-full text-xs border uppercase tracking-wider flex items-center gap-2 ${order.status === 'Delivered' ? 'bg-slate-50 text-slate-600 border-slate-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
+                                            {order.status === 'Preparing' && (
+                                                <motion.div
+                                                    animate={{ scale: [1, 1.3, 1] }}
+                                                    transition={{ repeat: Infinity, duration: 1.2 }}
+                                                    className="w-2 h-2 bg-emerald-500 rounded-full"
+                                                />
+                                            )}
+                                            {order.status}
+                                        </div>
+                                    </div>
+                                    <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+                                        <div>
+                                            <p className="font-bold text-slate-800">{order.items}</p>
+                                            <p className="text-slate-500 text-xs mt-1 font-medium">{order.estDelivery}</p>
+                                        </div>
+                                        <motion.div
+                                            animate={{ rotate: isExpanded ? 180 : 0 }}
+                                            className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center shrink-0"
+                                        >
+                                            <ChevronRight className="w-5 h-5 text-slate-400" />
+                                        </motion.div>
+                                    </div>
+                                </motion.div>
+
+                                {/* Expanded Tracker Stepper */}
+                                <AnimatePresence>
+                                    {isExpanded && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: "auto", opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.3 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="bg-white rounded-b-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.08)] border border-t-0 border-slate-100">
+                                                <h4 className="text-[15px] font-black text-slate-900 mb-6 w-full text-left tracking-tight">Tracking Details</h4>
+                                                <div className="relative">
+                                                    {[
+                                                        { title: "Order Placed", desc: "We received your order", time: "Oct 24, 10:00 AM", status: order.status === 'Delivered' ? "completed" : "completed" },
+                                                        { title: "Payment Confirmed", desc: "Your payment has been verified", time: "Oct 24, 10:05 AM", status: order.status === 'Delivered' ? "completed" : "completed" },
+                                                        { title: "Preparing", desc: "Ate Ai is now preparing your kakanin", time: "Oct 24, 10:15 AM", status: order.status === 'Delivered' ? "completed" : "active" },
+                                                        { title: "Out for Delivery", desc: "Your rider is on the way", time: order.status === 'Delivered' ? "Oct 27, 2:00 PM" : "Est. Oct 27, 2:00 PM", status: order.status === 'Delivered' ? "completed" : "upcoming" },
+                                                        { title: "Delivered", desc: "Enjoy your order!", time: order.status === 'Delivered' ? "Oct 27, 3:00 PM" : "Est. Oct 27, 3:00 PM", status: order.status === 'Delivered' ? "completed" : "upcoming" },
+                                                    ].map((step, idx, arr) => {
+                                                        let stepStatus = step.status;
+                                                        if (order.status === 'Delivered') {
+                                                            stepStatus = 'completed';
+                                                        } else if (order.status === 'Preparing') {
+                                                            if (idx > 2) stepStatus = 'upcoming';
+                                                            else if (idx === 2) stepStatus = 'active';
+                                                            else stepStatus = 'completed';
+                                                        }
+
+                                                        return (
+                                                            <motion.div
+                                                                key={idx}
+                                                                initial={{ opacity: 0, x: -10 }}
+                                                                animate={{ opacity: 1, x: 0 }}
+                                                                transition={{ delay: 0.1 + idx * 0.1 }}
+                                                                className="relative flex"
+                                                            >
+                                                                {/* Connector Line */}
+                                                                {idx !== arr.length - 1 && (
+                                                                    <div className="absolute left-[11px] top-6 bottom-[-8px] w-[2px] bg-slate-200">
+                                                                        {stepStatus === 'completed' && (
+                                                                            <motion.div
+                                                                                initial={{ scaleY: 0 }}
+                                                                                animate={{ scaleY: 1 }}
+                                                                                transition={{ delay: 0.2 + idx * 0.1, duration: 0.3 }}
+                                                                                className="w-full h-full bg-emerald-500 origin-top"
+                                                                            />
+                                                                        )}
+                                                                    </div>
+                                                                )}
+
+                                                                <div className="relative z-10 shrink-0 mt-1">
+                                                                    {stepStatus === "completed" && (
+                                                                        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center ring-4 ring-white shadow-sm">
+                                                                            <motion.svg
+                                                                                className="w-3.5 h-3.5"
+                                                                                fill="none"
+                                                                                viewBox="0 0 24 24"
+                                                                                stroke="white"
+                                                                                strokeWidth={3}
+                                                                            >
+                                                                                <motion.path
+                                                                                    strokeLinecap="round"
+                                                                                    strokeLinejoin="round"
+                                                                                    d="M5 13l4 4L19 7"
+                                                                                    initial={{ pathLength: 0 }}
+                                                                                    animate={{ pathLength: 1 }}
+                                                                                    transition={{ delay: 0.3 + idx * 0.1, duration: 0.3 }}
+                                                                                />
+                                                                            </motion.svg>
+                                                                        </div>
+                                                                    )}
+                                                                    {stepStatus === "active" && (
+                                                                        <div className="relative w-6 h-6 rounded-full bg-white border-2 border-emerald-500 flex items-center justify-center ring-4 ring-white shadow-sm">
+                                                                            <motion.div
+                                                                                animate={{ scale: [1, 1.5, 1], opacity: [0.6, 0, 0.6] }}
+                                                                                transition={{ repeat: Infinity, duration: 1.5 }}
+                                                                                className="absolute inset-0 rounded-full bg-emerald-400"
+                                                                            />
+                                                                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 relative z-10"></div>
+                                                                        </div>
+                                                                    )}
+                                                                    {stepStatus === "upcoming" && (
+                                                                        <div className="w-6 h-6 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center ring-4 ring-white"></div>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Content */}
+                                                                <div className={`ml-4 flex items-start justify-between w-full ${idx === arr.length - 1 ? '' : 'pb-8'}`}>
+                                                                    <div className="pr-4">
+                                                                        <h4 className={`font-bold text-[14px] ${stepStatus === 'upcoming' ? 'text-slate-400' : 'text-slate-900'}`}>{step.title}</h4>
+                                                                        <p className={`text-[12px] mt-0.5 leading-tight ${stepStatus === 'upcoming' ? 'text-slate-400' : 'text-slate-500'}`}>{step.desc}</p>
+                                                                    </div>
+                                                                    <div className={`text-right text-[10px] sm:text-[11px] mt-1 whitespace-nowrap shrink-0 ${stepStatus === 'upcoming' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
+                                                                        {step.time}
+                                                                    </div>
+                                                                </div>
+                                                            </motion.div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </motion.div>
                                     )}
-
-                                    <div className="relative z-10 shrink-0 mt-1">
-                                        {step.status === "completed" && (
-                                            <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center ring-4 ring-white shadow-sm">
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            </div>
-                                        )}
-                                        {step.status === "active" && (
-                                            <div className="w-6 h-6 rounded-full bg-white border-2 border-emerald-500 flex items-center justify-center ring-4 ring-white shadow-sm">
-                                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                            </div>
-                                        )}
-                                        {step.status === "upcoming" && (
-                                            <div className="w-6 h-6 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center ring-4 ring-white"></div>
-                                        )}
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className={`ml-4 flex items-start justify-between w-full ${idx === arr.length - 1 ? '' : 'pb-8'}`}>
-                                        <div className="pr-4">
-                                            <h4 className={`font-bold text-[15px] ${step.status === 'upcoming' ? 'text-slate-400' : 'text-slate-900'}`}>{step.title}</h4>
-                                            <p className={`text-[13px] mt-0.5 leading-tight ${step.status === 'upcoming' ? 'text-slate-400' : 'text-slate-500'}`}>{step.desc}</p>
-                                        </div>
-                                        <div className={`text-right text-[11px] mt-1 whitespace-nowrap shrink-0 ${step.status === 'upcoming' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
-                                            {step.time}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
+                                </AnimatePresence>
+                            </div>
+                        );
+                    })}
+                </motion.section>
             )}
 
             {activeTab === "profile" && (
@@ -709,7 +748,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                 {[
                     { id: "home", label: "Home", icon: Store },
                     { id: "orders", label: "Orders", icon: ReceiptText },
-                    { id: "notifications", label: "Notifications", icon: Bell },
+                    { id: "chat", label: "Support", icon: Headset },
                     { id: "profile", label: "Account", icon: User },
                 ].map((tab) => {
                     const isActive = activeTab === tab.id;
@@ -719,6 +758,9 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                             whileTap={{ scale: 0.9 }}
                             onClick={() => {
                                 setActiveTab(tab.id as any);
+                                if (tab.id === "orders") {
+                                    setOrderAnimKey(prev => prev + 1);
+                                }
                             }}
                             className={`flex flex-col items-center gap-1 min-w-16 p-2 ${isActive ? "text-emerald-700" : "text-slate-400"}`}
                         >
