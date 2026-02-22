@@ -110,26 +110,47 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
             <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-emerald-50">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center gap-6">
                     <div className="flex items-center gap-2 shrink-0 hidden lg:flex">
-                        <div className="w-10 h-10 bg-emerald-700 rounded-lg flex items-center justify-center">
-                            <Leaf className="w-6 h-6 text-white" strokeWidth={1.5} />
-                        </div>
+                        <Image
+                            src="/logo.png"
+                            alt="Ate Ai's Kitchen Logo"
+                            width={42}
+                            height={42}
+                            className="object-contain"
+                            priority
+                        />
                         <span className="font-bold text-xl tracking-tight text-slate-900">
-                            Kitchen
+                            Ate Ai&apos;s Kitchen
                         </span>
                     </div>
 
-                    <div className="flex-1 max-w-xl relative mx-auto">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Search className="w-5 h-5 text-slate-400" strokeWidth={1.5} />
+                    {activeTab === "home" ? (
+                        <div className="flex-1 max-w-xl relative mx-auto">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <Search className="w-5 h-5 text-slate-400" strokeWidth={1.5} />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search for delicacy..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-gray-100 rounded-lg w-full py-3 pl-12 pr-6 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:bg-white transition-all placeholder:text-slate-500 font-medium"
+                            />
                         </div>
-                        <input
-                            type="text"
-                            placeholder="Search for delicacy..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-gray-100 rounded-lg w-full py-3 pl-12 pr-6 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:bg-white transition-all placeholder:text-slate-500 font-medium"
-                        />
-                    </div>
+                    ) : (
+                        <div className="flex-1 flex items-center gap-3">
+                            <Image
+                                src="/logo.png"
+                                alt="Ate Ai's Kitchen Logo"
+                                width={38}
+                                height={38}
+                                className="object-contain lg:hidden"
+                                priority
+                            />
+                            <span className="font-bold text-lg tracking-tight text-slate-900 lg:hidden">
+                                Ate Ai&apos;s Kitchen
+                            </span>
+                        </div>
+                    )}
 
                     <div className="flex items-center gap-3 shrink-0">
                         {/* Notifications Button */}
@@ -681,7 +702,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                     {/* ── MAIN SETTINGS PAGE ── */}
                     {settingsPage === "main" && (
                         <>
-                            <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 sticky top-20 z-10">
+                            <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 z-10">
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
                                     onClick={() => { setActiveTab("profile"); setSettingsPage("main"); }}
@@ -763,7 +784,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                     {/* ── ACCOUNT & SECURITY ── */}
                     {settingsPage === "account-security" && (
                         <>
-                            <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 sticky top-20 z-10">
+                            <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 z-10">
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
                                     onClick={() => { setSettingsPage("main"); setShowPasswordFields(false); }}
@@ -881,7 +902,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                     {/* ── MY ADDRESSES ── */}
                     {settingsPage === "addresses" && (
                         <>
-                            <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 sticky top-20 z-10">
+                            <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 z-10">
                                 <motion.button whileTap={{ scale: 0.9 }} onClick={() => setSettingsPage("main")}
                                     className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors shrink-0">
                                     <ArrowLeft className="w-4 h-4 text-slate-600" />
@@ -917,7 +938,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                     {/* ── PAYMENT METHODS ── */}
                     {settingsPage === "payment-methods" && (
                         <>
-                            <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 sticky top-20 z-10">
+                            <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 z-10">
                                 <motion.button whileTap={{ scale: 0.9 }} onClick={() => setSettingsPage("main")}
                                     className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors shrink-0">
                                     <ArrowLeft className="w-4 h-4 text-slate-600" />
@@ -955,7 +976,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
 
             {activeTab === "notifications" && (
                 <section className="max-w-xl mx-auto bg-slate-50 min-h-screen pt-0 pb-28">
-                    <div className="bg-white p-4 border-b border-slate-100 flex items-center gap-3 sticky top-20 z-10 shadow-sm">
+                    <div className="bg-white p-4 border-b border-slate-100 flex items-center gap-3 z-10 shadow-sm">
                         <Bell className="w-5 h-5 text-emerald-700" />
                         <h2 className="text-lg font-bold text-slate-900">Notifications</h2>
                     </div>
@@ -978,7 +999,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
 
             {activeTab === "chat" && (
                 <section className="max-w-xl mx-auto bg-slate-50 h-[calc(100vh-80px-70px)] flex flex-col pt-0 pb-0">
-                    <div className="bg-emerald-700 p-4 border-b border-emerald-800 flex items-center gap-3 sticky top-20 z-10 shadow-sm text-white">
+                    <div className="bg-emerald-700 p-4 border-b border-emerald-800 flex items-center gap-3 z-10 shadow-sm text-white">
                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
                             <Leaf className="w-5 h-5 text-white" strokeWidth={1.5} />
                         </div>
@@ -1025,7 +1046,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
 
             {activeTab === "custom-order" && (
                 <section className="block max-w-xl mx-auto bg-slate-50 h-[calc(100vh-80px)] md:h-[calc(100vh-80px-70px)] flex flex-col pt-0 pb-0">
-                    <div className="bg-emerald-800 p-4 border-b border-emerald-900 flex items-center gap-3 sticky top-20 z-10 shadow-sm text-white">
+                    <div className="bg-emerald-800 p-4 border-b border-emerald-900 flex items-center gap-3 z-10 shadow-sm text-white">
                         <button
                             onClick={() => setActiveTab("home")}
                             className="hidden lg:flex p-2 -ml-2 mr-1 hover:bg-emerald-700/50 rounded-lg transition-colors"

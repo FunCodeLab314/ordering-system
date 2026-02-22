@@ -82,9 +82,14 @@ export default function LandingView({ onLogin }: LandingViewProps) {
             <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-emerald-50">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 bg-emerald-700 rounded-lg flex items-center justify-center">
-                            <Leaf className="w-6 h-6 text-white" strokeWidth={1.5} />
-                        </div>
+                        <Image
+                            src="/logo.png"
+                            alt="Ate Ai's Kitchen Logo"
+                            width={40}
+                            height={40}
+                            className="object-contain"
+                            priority
+                        />
                         <span className="font-bold text-xl tracking-tight text-slate-900">
                             Ate Ai&apos;s Kitchen
                         </span>
@@ -483,7 +488,13 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 grid md:grid-cols-4 gap-8 mb-12">
                     <div className="md:col-span-2">
                         <div className="flex items-center gap-2 mb-6">
-                            <Leaf className="w-6 h-6 text-emerald-500" strokeWidth={1.5} />
+                            <Image
+                                src="/logo.png"
+                                alt="Ate Ai's Kitchen Logo"
+                                width={28}
+                                height={28}
+                                className="object-contain"
+                            />
                             <span className="font-bold text-2xl tracking-tight text-white">
                                 Ate Ai&apos;s Kitchen
                             </span>
