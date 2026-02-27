@@ -37,7 +37,7 @@ export default function Home() {
     <div className="font-sans antialiased text-slate-900 bg-[#FDFBF7] min-h-screen">
       <AnimatePresence mode="wait">
         {!user ? (
-          <LandingView key="landing" onLogin={() => {}} />
+          <LandingView key="landing" />
         ) : (
           <DashboardView
             key="dashboard"

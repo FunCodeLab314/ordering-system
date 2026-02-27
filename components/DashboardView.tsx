@@ -15,17 +15,8 @@ const promoSlides = [
     "/images/591396000_1300306605449851_5261874470759623080_n.jpg"
 ];
 
-const dummyNotifications = [
-    { id: 1, title: "Order Confirmed", message: "Your order #1234 is being prepared.", time: "5m ago", unread: true },
-    { id: 2, title: "Delivery Update", message: "Your rider is arriving in 5 mins.", time: "10m ago", unread: true },
-    { id: 3, title: "Promo Alert", message: "Get 20% off on your next purchase!", time: "1h ago", unread: false }
-];
-
-const dummyChatMessages = [
-    { id: 1, sender: "store", text: "Hi Juan! How can we help you today?", time: "10:00 AM" },
-    { id: 2, sender: "user", text: "I want to follow up on my order.", time: "10:05 AM" },
-    { id: 3, sender: "store", text: "Your order is on the way! It should arrive in 5 mins.", time: "10:06 AM" }
-];
+const notifications: Array<{ id: number; title: string; message: string; time: string; unread: boolean }> = [];
+const chatMessages: Array<{ id: number; sender: "store" | "user"; text: string; time: string }> = [];
 
 interface DashboardViewProps {
     cartCount: number;
@@ -195,7 +186,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                                                 </button>
                                             </div>
                                             <div className="max-h-[350px] overflow-y-auto">
-                                                {dummyNotifications.map(notification => (
+                                                {notifications.map(notification => (
                                                     <div key={notification.id} className={`p-4 border-b border-slate-50 hover:bg-green-50/50 transition-colors cursor-pointer ${notification.unread ? 'bg-emerald-50/30' : ''}`}>
                                                         <div className="flex justify-between items-start mb-1">
                                                             <h4 className="font-semibold text-sm text-slate-900 flex items-center gap-2">
@@ -986,7 +977,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                         <h2 className="text-lg font-bold text-slate-900">Notifications</h2>
                     </div>
                     <div className="divide-y divide-slate-100">
-                        {dummyNotifications.map(notification => (
+                        {notifications.map(notification => (
                             <div key={notification.id} className={`p-4 bg-white transition-colors ${notification.unread ? 'bg-emerald-50/40' : ''}`}>
                                 <div className="flex justify-between items-start mb-1">
                                     <h4 className="font-semibold text-[15px] text-slate-900 flex items-center gap-2">
@@ -1016,7 +1007,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                         </div>
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-                        {dummyChatMessages.map(msg => (
+                        {chatMessages.map(msg => (
                             <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
                                 <div className={`max-w-[85%] rounded-lg p-3 shadow-sm ${msg.sender === "user" ? "bg-emerald-600 text-white rounded-tr-sm" : "bg-white border border-slate-100 text-slate-800 rounded-tl-sm"}`}>
                                     <p className="text-sm">{msg.text}</p>
@@ -1077,7 +1068,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                                 <span className="text-[10px] block mt-2 text-slate-400">Just now</span>
                             </div>
                         </div>
-                        {/* We reuse dummyChatMessages or chatMessage state here for a simple implementation */}
+                        {/* We reuse chatMessages or chatMessage state here for a simple implementation */}
                         {chatMessage.trim().length > 0 && false /* Hiding until sent, actually let's just use a separate state or dummy UI */}
                     </div>
                     <div className="p-4 border-t border-slate-100 bg-white flex flex-col gap-3 sticky bottom-[calc(env(safe-area-inset-bottom)+50px)] md:bottom-0">
@@ -1270,4 +1261,6 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
         </motion.div>
     );
 }
+
+
 

@@ -10,11 +10,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { Product } from "@/lib/data";
 import ProductModal from "./ProductModal";
 
-interface LandingViewProps {
-    onLogin: () => void;
-}
-
-export default function LandingView({ onLogin }: LandingViewProps) {
+export default function LandingView() {
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -77,7 +73,28 @@ export default function LandingView({ onLogin }: LandingViewProps) {
             return;
         }
         closeAuthModal();
-        onLogin();
+    };
+
+    const handleGoogleSignIn = async () => {
+        setAuthError(null);
+        setAuthLoading(true);
+        try {
+            const supabase = createClient();
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                    redirectTo: `${window.location.origin}/`,
+                },
+            });
+
+            if (error) {
+                setAuthError(error.message);
+                setAuthLoading(false);
+            }
+        } catch {
+            setAuthError("Google sign-in failed. Please try again.");
+            setAuthLoading(false);
+        }
     };
 
     const handleSignUp = async () => {
@@ -107,7 +124,6 @@ export default function LandingView({ onLogin }: LandingViewProps) {
 
         setAuthLoading(false);
         closeAuthModal();
-        onLogin();
     };
 
     const handleOtpInput = (index: number, value: string) => {
@@ -672,6 +688,8 @@ export default function LandingView({ onLogin }: LandingViewProps) {
 
                                         <motion.button
                                             whileTap={{ scale: 0.98 }}
+                                            onClick={handleGoogleSignIn}
+                                            disabled={authLoading}
                                             className="w-full bg-white border border-slate-200 text-slate-700 font-medium rounded-lg py-3 hover:bg-slate-50 transition-colors flex items-center justify-center gap-3"
                                         >
                                             <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
@@ -726,7 +744,8 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                                         </div>
 
                                         <button
-                                            onClick={handleSignUp}
+                                            onClick={handleGoogleSignIn}
+                                            disabled={authLoading}
                                             className="border border-slate-200 rounded-lg p-4 flex items-center gap-4 hover:bg-slate-50 cursor-pointer transition-colors w-full text-left"
                                         >
                                             <div className="w-9 h-9 bg-white rounded-md border border-slate-200 flex items-center justify-center shrink-0">
