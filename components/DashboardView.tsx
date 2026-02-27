@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, ShoppingBag, Leaf, ShoppingCart, User, Star, X, MapPin, CreditCard, Settings, HelpCircle, ChevronRight, Store, ReceiptText, Bell, MessageCircle, Send, ArrowLeft, Headset, Banknote, Smartphone, Plus } from "lucide-react";
 import Image from "next/image";
-import { products, categories, Product } from "@/lib/data";
+import { useProducts } from "@/hooks/useProducts";
+import { categories, Product } from "@/lib/data";
 import LocationPicker from "./LocationPicker";
 import ProductModal from "./ProductModal";
 
@@ -38,6 +39,7 @@ interface DashboardViewProps {
 type DashboardTab = "home" | "orders" | "profile" | "notifications" | "chat" | "custom-order" | "settings";
 
 export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLogout, shouldRedirectToOrders, onRedirectHandled }: DashboardViewProps) {
+    const { products, loading: productsLoading } = useProducts();
     const [activeCategory, setActiveCategory] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
     const [showToast, setShowToast] = useState(false);
@@ -372,7 +374,13 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                             <p className="text-slate-500 mt-2 text-lg">Delicious, authentic goodness in every bite</p>
                         </div>
 
-                        {filteredProducts.length > 0 ? (
+                        {productsLoading ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                                {Array.from({ length: 8 }).map((_, i) => (
+                                    <div key={i} className="rounded-2xl bg-slate-100 animate-pulse aspect-square" />
+                                ))}
+                            </div>
+                        ) : filteredProducts.length > 0 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                                 {filteredProducts.map((product, idx) => (
                                     <motion.div
@@ -417,7 +425,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                                             <div className="hidden sm:flex items-center gap-1 mt-0.5 sm:mt-1 text-[11px] sm:text-sm">
                                                 <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                                                 <span className="font-bold text-slate-700">4.9 <span className="font-normal text-slate-500">(500+)</span></span>
-                                                <span className="text-slate-300 mx-1">•</span>
+                                                <span className="text-slate-300 mx-1">â€¢</span>
                                                 <span className="text-slate-500 line-clamp-1">{product.category}</span>
                                             </div>
 
@@ -431,7 +439,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
 
                                             <div className="flex justify-between items-end sm:items-center w-full mt-1 sm:mt-auto sm:pt-4">
                                                 <div className="text-[14px] sm:text-xl font-black text-slate-900 tracking-tight">
-                                                    ₱{product.price}.00
+                                                    â‚±{product.price}.00
                                                 </div>
                                                 <div className="hidden sm:flex gap-0.5 items-center">
                                                     {[...Array(5)].map((_, i) => (
@@ -516,7 +524,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                                     <div className="flex justify-between items-start mb-4">
                                         <div>
                                             <h3 className="text-xl font-black text-slate-900 tracking-tight">Order #{order.id}</h3>
-                                            <p className="text-slate-500 text-sm mt-1 font-medium">{order.method} • ₱{order.price}</p>
+                                            <p className="text-slate-500 text-sm mt-1 font-medium">{order.method} â€¢ â‚±{order.price}</p>
                                         </div>
                                         <div className={`font-bold px-3 py-1.5 rounded-lg text-xs border uppercase tracking-wider flex items-center gap-2 ${order.status === 'Delivered' ? 'bg-slate-50 text-slate-600 border-slate-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
                                             {order.status === 'Preparing' && (
@@ -696,7 +704,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
             {activeTab === "settings" && (
                 <section className="max-w-xl mx-auto bg-slate-100 min-h-[calc(100vh-80px)] pt-0 pb-24">
 
-                    {/* ── MAIN SETTINGS PAGE ── */}
+                    {/* â”€â”€ MAIN SETTINGS PAGE â”€â”€ */}
                     {settingsPage === "main" && (
                         <>
                             <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 z-10">
@@ -778,7 +786,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                         </>
                     )}
 
-                    {/* ── ACCOUNT & SECURITY ── */}
+                    {/* â”€â”€ ACCOUNT & SECURITY â”€â”€ */}
                     {settingsPage === "account-security" && (
                         <>
                             <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 z-10">
@@ -816,7 +824,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                                         <div>
                                             <label className="block text-xs font-semibold text-slate-500 mb-1">Phone Number</label>
                                             <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm select-none">🇵🇭</span>
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm select-none">ðŸ‡µðŸ‡­</span>
                                                 <input type="tel" defaultValue="+63 912 345 6789" placeholder="+63 9XX XXX XXXX"
                                                     className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 pl-9 pr-3 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-500 transition-all" />
                                             </div>
@@ -896,7 +904,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                         </>
                     )}
 
-                    {/* ── MY ADDRESSES ── */}
+                    {/* â”€â”€ MY ADDRESSES â”€â”€ */}
                     {settingsPage === "addresses" && (
                         <>
                             <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 z-10">
@@ -932,7 +940,7 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
                         </>
                     )}
 
-                    {/* ── PAYMENT METHODS ── */}
+                    {/* â”€â”€ PAYMENT METHODS â”€â”€ */}
                     {settingsPage === "payment-methods" && (
                         <>
                             <div className="bg-white px-4 h-14 flex items-center gap-3 border-b border-slate-100 z-10">
@@ -1262,3 +1270,4 @@ export default function DashboardView({ cartCount, onOpenCart, onAddToCart, onLo
         </motion.div>
     );
 }
+

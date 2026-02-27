@@ -1,60 +1,50 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import LandingView from "@/components/LandingView";
 import DashboardView from "@/components/DashboardView";
-import CartDrawer, { CartItem } from "@/components/CartDrawer";
-import { Product } from "@/lib/data";
+import CartDrawer from "@/components/CartDrawer";
+import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/hooks/useCart";
+import type { Product } from "@/lib/data";
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { cartItems, cartCount, addToCart, updateQuantity, clearCart } = useCart(user);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [shouldRedirectToOrders, setShouldRedirectToOrders] = useState(false);
 
-  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-
   const handleAddToCart = (product: Product) => {
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
-  };
-
-  const handleUpdateQuantity = (id: string, delta: number) => {
-    setCartItems((prev) =>
-      prev
-        .map((item) =>
-          item.id === id ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
+    addToCart(product);
   };
 
   const handlePlaceOrder = () => {
-    setCartItems([]);
+    clearCart();
     setIsCartOpen(false);
     setShouldRedirectToOrders(true);
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-emerald-700 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="font-sans antialiased text-slate-900 bg-[#FDFBF7] min-h-screen">
       <AnimatePresence mode="wait">
-        {!isLoggedIn ? (
-          <LandingView key="landing" onLogin={() => setIsLoggedIn(true)} />
+        {!user ? (
+          <LandingView key="landing" onLogin={() => {}} />
         ) : (
           <DashboardView
             key="dashboard"
             cartCount={cartCount}
             onOpenCart={() => setIsCartOpen(true)}
             onAddToCart={handleAddToCart}
-            onLogout={() => setIsLoggedIn(false)}
+            onLogout={signOut}
             shouldRedirectToOrders={shouldRedirectToOrders}
             onRedirectHandled={() => setShouldRedirectToOrders(false)}
           />
@@ -64,8 +54,14 @@ export default function Home() {
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
-        cartItems={cartItems}
-        onUpdateQuantity={handleUpdateQuantity}
+        cartItems={cartItems.map((item) => ({
+          ...item,
+          id: item.product_id,
+        }))}
+        onUpdateQuantity={(productId, delta) => {
+          const cartItem = cartItems.find((i) => i.product_id === productId);
+          if (cartItem) updateQuantity(cartItem.id, delta);
+        }}
         onPlaceOrder={handlePlaceOrder}
       />
     </div>

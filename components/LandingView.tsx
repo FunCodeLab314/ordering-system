@@ -1,11 +1,13 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Leaf, Truck, ShieldCheck, ArrowRight, ShoppingCart, Star, ChevronDown, X, ShoppingBag, Phone, Mail, ChevronRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 
 import Image from "next/image";
-import { products, Product } from "@/lib/data";
+import { createClient } from "@/lib/supabase/client";
+import { useProducts } from "@/hooks/useProducts";
+import { Product } from "@/lib/data";
 import ProductModal from "./ProductModal";
 
 interface LandingViewProps {
@@ -22,7 +24,14 @@ export default function LandingView({ onLogin }: LandingViewProps) {
     const [codeSent, setCodeSent] = useState(false);
     const [otpValue, setOtpValue] = useState(["", "", "", "", "", ""]);
     const [signupInput, setSignupInput] = useState("");
+    const [loginEmail, setLoginEmail] = useState("");
+    const [loginPassword, setLoginPassword] = useState("");
+    const [signupPassword, setSignupPassword] = useState("");
+    const [signupFullName, setSignupFullName] = useState("");
+    const [authLoading, setAuthLoading] = useState(false);
+    const [authError, setAuthError] = useState<string | null>(null);
     const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
+    const { products } = useProducts();
     const bestSellers = products.filter((p) => p.isBestSeller).slice(0, 4);
 
     const resetSignupState = () => {
@@ -32,6 +41,12 @@ export default function LandingView({ onLogin }: LandingViewProps) {
         setCodeSent(false);
         setOtpValue(["", "", "", "", "", ""]);
         setSignupInput("");
+        setLoginEmail("");
+        setLoginPassword("");
+        setSignupPassword("");
+        setSignupFullName("");
+        setAuthError(null);
+        setAuthLoading(false);
     };
 
     const closeAuthModal = () => {
@@ -45,13 +60,54 @@ export default function LandingView({ onLogin }: LandingViewProps) {
         setCodeSent(false);
         setSignupInput("");
         setOtpValue(["", "", "", "", "", ""]);
+        setAuthError(null);
     };
 
-    const handleSendCode = () => {
-        if (!signupInput.trim()) return;
-        setCodeSent(true);
-        setOtpValue(["", "", "", "", "", ""]);
-        setTimeout(() => otpRefs.current[0]?.focus(), 0);
+    const handleLogin = async () => {
+        setAuthError(null);
+        setAuthLoading(true);
+        const supabase = createClient();
+        const { error } = await supabase.auth.signInWithPassword({
+            email: loginEmail,
+            password: loginPassword,
+        });
+        setAuthLoading(false);
+        if (error) {
+            setAuthError(error.message);
+            return;
+        }
+        closeAuthModal();
+        onLogin();
+    };
+
+    const handleSignUp = async () => {
+        setAuthError(null);
+        setAuthLoading(true);
+        const supabase = createClient();
+
+        if (signupMethod === "email") {
+            const { error } = await supabase.auth.signUp({
+                email: signupInput,
+                password: signupPassword,
+                options: { data: { full_name: signupFullName } },
+            });
+            if (error) {
+                setAuthError(error.message);
+                setAuthLoading(false);
+                return;
+            }
+        } else {
+            const { error } = await supabase.auth.signInWithOtp({ phone: signupInput });
+            if (error) {
+                setAuthError(error.message);
+                setAuthLoading(false);
+                return;
+            }
+        }
+
+        setAuthLoading(false);
+        closeAuthModal();
+        onLogin();
     };
 
     const handleOtpInput = (index: number, value: string) => {
@@ -208,7 +264,7 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                                 <div className="flex items-center gap-1 mt-0.5 sm:mt-1 text-[11px] sm:text-sm">
                                     <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                                     <span className="font-bold text-slate-700">4.9 <span className="font-normal text-slate-500">(500+)</span></span>
-                                    <span className="text-slate-300 mx-1">•</span>
+                                    <span className="text-slate-300 mx-1">ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢</span>
                                     <span className="text-slate-500 line-clamp-1">{product.category}</span>
                                 </div>
 
@@ -222,7 +278,7 @@ export default function LandingView({ onLogin }: LandingViewProps) {
 
                                 <div className="flex justify-between items-end sm:items-center w-full mt-auto sm:pt-4">
                                     <div className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
-                                        ₱{product.price}.00
+                                        ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â±{product.price}.00
                                     </div>
                                     <div className="hidden sm:flex gap-0.5 items-center">
                                         {[...Array(5)].map((_, i) => (
@@ -570,13 +626,20 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                             </div>
 
                             <div className="px-6 pb-6 space-y-4">
+                                {authError && (
+                                    <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+                                        {authError}
+                                    </div>
+                                )}
                                 {authTab === "login" && (
                                     <>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Email or Phone Number</label>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                                             <input
-                                                type="text"
-                                                placeholder="Enter your details"
+                                                type="email"
+                                                value={loginEmail}
+                                                onChange={(e) => setLoginEmail(e.target.value)}
+                                                placeholder="you@email.com"
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-lg py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-500 transition-all font-medium"
                                             />
                                         </div>
@@ -584,17 +647,20 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                                             <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
                                             <input
                                                 type="password"
-                                                placeholder="••••••••"
+                                                value={loginPassword}
+                                                onChange={(e) => setLoginPassword(e.target.value)}
+                                                placeholder="********"
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-lg py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-500 transition-all font-medium"
                                             />
                                         </div>
 
                                         <motion.button
                                             whileTap={{ scale: 0.98 }}
-                                            onClick={onLogin}
-                                            className="w-full bg-emerald-700 text-white font-semibold rounded-lg py-3 mt-2 shadow-md shadow-emerald-700/20 hover:bg-emerald-800 transition-colors flex items-center justify-center gap-2"
+                                            onClick={handleLogin}
+                                            disabled={authLoading}
+                                            className="w-full bg-emerald-700 text-white font-semibold rounded-lg py-3 mt-2 shadow-md shadow-emerald-700/20 hover:bg-emerald-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                                         >
-                                            Login
+                                            {authLoading ? "Signing in..." : "Login"}
                                         </motion.button>
 
                                         <div className="relative py-2">
@@ -660,7 +726,7 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                                         </div>
 
                                         <button
-                                            onClick={onLogin}
+                                            onClick={handleSignUp}
                                             className="border border-slate-200 rounded-lg p-4 flex items-center gap-4 hover:bg-slate-50 cursor-pointer transition-colors w-full text-left"
                                         >
                                             <div className="w-9 h-9 bg-white rounded-md border border-slate-200 flex items-center justify-center shrink-0">
@@ -697,9 +763,22 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                                             <h3 className="text-xl font-bold text-slate-900">{signupMethod === "phone" ? "Enter your phone number" : "Enter your email address"}</h3>
                                         </div>
 
+                                        {signupMethod === "email" && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={signupFullName}
+                                                    onChange={(e) => setSignupFullName(e.target.value)}
+                                                    placeholder="Juan Dela Cruz"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-500 transition-all font-medium"
+                                                />
+                                            </div>
+                                        )}
+
                                         <div className="relative">
                                             {signupMethod === "phone" && (
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm">🇵🇭</span>
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm">ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­</span>
                                             )}
                                             <input
                                                 type={signupMethod === "phone" ? "tel" : "email"}
@@ -710,12 +789,26 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                                             />
                                         </div>
 
+                                        {signupMethod === "email" && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                                                <input
+                                                    type="password"
+                                                    value={signupPassword}
+                                                    onChange={(e) => setSignupPassword(e.target.value)}
+                                                    placeholder="Create a password"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-500 transition-all font-medium"
+                                                />
+                                            </div>
+                                        )}
+
                                         <motion.button
                                             whileTap={{ scale: 0.98 }}
-                                            onClick={handleSendCode}
+                                            onClick={handleSignUp}
+                                            disabled={authLoading}
                                             className="w-full bg-emerald-700 text-white font-semibold rounded-lg py-3 shadow-md shadow-emerald-700/20 hover:bg-emerald-800 transition-colors"
                                         >
-                                            {signupMethod === "phone" ? "Send OTP Code" : "Send Verification Code"}
+                                            {authLoading ? "Please wait..." : signupMethod === "phone" ? "Send OTP Code" : "Create Account"}
                                         </motion.button>
 
                                         {codeSent && (
@@ -744,7 +837,7 @@ export default function LandingView({ onLogin }: LandingViewProps) {
                                                 <div className="text-sm text-slate-500">
                                                     Didn&apos;t receive it?{" "}
                                                     <button
-                                                        onClick={handleSendCode}
+                                                        onClick={handleSignUp}
                                                         className="text-emerald-700 font-semibold cursor-pointer"
                                                     >
                                                         Resend Code
@@ -753,7 +846,7 @@ export default function LandingView({ onLogin }: LandingViewProps) {
 
                                                 <motion.button
                                                     whileTap={{ scale: 0.98 }}
-                                                    onClick={onLogin}
+                                                    onClick={handleSignUp}
                                                     className="w-full bg-emerald-700 text-white font-semibold rounded-lg py-3 shadow-md shadow-emerald-700/20 hover:bg-emerald-800 transition-colors"
                                                 >
                                                     Verify & Create Account
@@ -782,3 +875,4 @@ export default function LandingView({ onLogin }: LandingViewProps) {
         </motion.div>
     );
 }
+
