@@ -177,7 +177,7 @@ export default function CartDrawer({
                                             <div className="flex-1 flex flex-col justify-between py-1">
                                                 <div>
                                                     <h4 className="font-semibold text-slate-900 leading-tight">{item.name}</h4>
-                                                    <div className="text-emerald-700 font-bold text-sm mt-1">â‚±{item.price * item.quantity}</div>
+                                                    <div className="text-emerald-700 font-bold text-sm mt-1">PHP {item.price * item.quantity}</div>
                                                 </div>
 
                                                 <div className="flex items-center gap-3">
@@ -304,17 +304,17 @@ export default function CartDrawer({
                                 <div className="space-y-2 mb-4">
                                     <div className="flex justify-between items-center text-sm text-slate-500">
                                         <span>Merchandise Subtotal</span>
-                                        <span>â‚±{totalAmount}</span>
+                                        <span>PHP {totalAmount}</span>
                                     </div>
                                     {deliveryMode === "delivery" && (
                                         <div className="flex justify-between items-center text-sm text-slate-500">
                                             <span>Shipping Fee</span>
-                                            <span>â‚±{shippingFee}</span>
+                                            <span>PHP {shippingFee}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between items-center font-bold text-lg text-slate-900 border-t border-slate-100 pt-3 mt-2">
                                         <span>Total Payment</span>
-                                        <span className="text-emerald-700">â‚±{totalPayment}</span>
+                                        <span className="text-emerald-700">PHP {totalPayment}</span>
                                     </div>
                                 </div>
                                 {orderError && (
