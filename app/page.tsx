@@ -41,6 +41,7 @@ export default function Home() {
         ) : (
           <DashboardView
             key="dashboard"
+            user={user}
             cartCount={cartCount}
             onOpenCart={() => setIsCartOpen(true)}
             onAddToCart={handleAddToCart}

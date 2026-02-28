@@ -1,10 +1,13 @@
-"use client";
+﻿"use client";
 
 import { SVGProps, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Minus, MapPin, CreditCard, Banknote, Calendar, CheckCircle2, Truck, Store, Upload, QrCode } from "lucide-react";
 import Image from "next/image";
 import { Product } from "@/lib/data";
+import { useAuth } from "@/hooks/useAuth";
+import { createClient } from "@/lib/supabase/client";
+import { placeOrder } from "@/lib/orders/placeOrder";
 import LocationPicker from "./LocationPicker";
 
 export interface CartItem extends Product {
@@ -26,27 +29,85 @@ export default function CartDrawer({
     onUpdateQuantity,
     onPlaceOrder,
 }: CartDrawerProps) {
+    const { user } = useAuth();
     const [selectedPayment, setSelectedPayment] = useState<string>("cod");
+    const [walletProvider, setWalletProvider] = useState<"GCash" | "Maya">("GCash");
     const [showSuccess, setShowSuccess] = useState(false);
     const [deliveryMode, setDeliveryMode] = useState<"delivery" | "pickup">("delivery");
     const [showMapModal, setShowMapModal] = useState(false);
     const [address, setAddress] = useState("Tap to set location map");
+    const [deliveryLat, setDeliveryLat] = useState<number | null>(null);
+    const [deliveryLng, setDeliveryLng] = useState<number | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentStep, setPaymentStep] = useState<"qr" | "upload">("qr");
+    const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+    const [orderError, setOrderError] = useState<string | null>(null);
 
     const totalAmount = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
     const shippingFee = deliveryMode === "delivery" ? 50 : 0;
     const totalPayment = totalAmount + shippingFee;
 
-    const handlePlaceOrder = () => {
+    const fetchProfile = async () => {
+        if (!user) return null;
+        const supabase = createClient();
+        const { data } = await supabase
+            .from("profiles")
+            .select("full_name, phone")
+            .eq("id", user.id)
+            .maybeSingle();
+        return data;
+    };
+
+    const submitOrder = async (method: "COD" | "GCash" | "Maya") => {
+        if (!user) return;
+        if (cartItems.length === 0) return;
+        if (deliveryMode === "delivery" && (!address || address === "Tap to set location map")) {
+            setOrderError("Please pin your delivery location first.");
+            return;
+        }
+
+        setOrderError(null);
+        setIsPlacingOrder(true);
+
+        try {
+            const profile = await fetchProfile();
+
+            await placeOrder({
+                cartItems: cartItems.map((item) => ({
+                    product_id: item.id,
+                    quantity: item.quantity,
+                    price: item.price,
+                    name: item.name,
+                })),
+                deliveryMode: deliveryMode === "delivery" ? "Delivery" : "Pick-up",
+                deliveryAddress: deliveryMode === "delivery" ? address : null,
+                deliveryLat: deliveryMode === "delivery" ? deliveryLat : null,
+                deliveryLng: deliveryMode === "delivery" ? deliveryLng : null,
+                paymentMethod: method,
+                scheduledDate: null,
+                customerName: profile?.full_name ?? user.email ?? "Customer",
+                customerPhone: profile?.phone ?? "",
+            });
+
+            triggerSuccessState();
+        } catch (error) {
+            setOrderError(error instanceof Error ? error.message : "Failed to place order");
+        } finally {
+            setIsPlacingOrder(false);
+        }
+    };
+
+    const handlePlaceOrder = async () => {
+        if (!user) return;
+        setOrderError(null);
+
         if (selectedPayment === "online") {
             setShowPaymentModal(true);
             setPaymentStep("qr");
             return;
         }
 
-        // Standard COD floW
-        triggerSuccessState();
+        await submitOrder("COD");
     };
 
     const triggerSuccessState = () => {
@@ -116,7 +177,7 @@ export default function CartDrawer({
                                             <div className="flex-1 flex flex-col justify-between py-1">
                                                 <div>
                                                     <h4 className="font-semibold text-slate-900 leading-tight">{item.name}</h4>
-                                                    <div className="text-emerald-700 font-bold text-sm mt-1">₱{item.price * item.quantity}</div>
+                                                    <div className="text-emerald-700 font-bold text-sm mt-1">â‚±{item.price * item.quantity}</div>
                                                 </div>
 
                                                 <div className="flex items-center gap-3">
@@ -243,25 +304,31 @@ export default function CartDrawer({
                                 <div className="space-y-2 mb-4">
                                     <div className="flex justify-between items-center text-sm text-slate-500">
                                         <span>Merchandise Subtotal</span>
-                                        <span>₱{totalAmount}</span>
+                                        <span>â‚±{totalAmount}</span>
                                     </div>
                                     {deliveryMode === "delivery" && (
                                         <div className="flex justify-between items-center text-sm text-slate-500">
                                             <span>Shipping Fee</span>
-                                            <span>₱{shippingFee}</span>
+                                            <span>â‚±{shippingFee}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between items-center font-bold text-lg text-slate-900 border-t border-slate-100 pt-3 mt-2">
                                         <span>Total Payment</span>
-                                        <span className="text-emerald-700">₱{totalPayment}</span>
+                                        <span className="text-emerald-700">â‚±{totalPayment}</span>
                                     </div>
                                 </div>
+                                {orderError && (
+                                    <div className="mb-3 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                                        {orderError}
+                                    </div>
+                                )}
                                 <motion.button
                                     whileTap={{ scale: 0.96 }}
-                                    onClick={handlePlaceOrder}
-                                    className="w-full bg-emerald-700 text-white font-semibold rounded-lg py-4 shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-colors flex items-center justify-center gap-2 text-lg"
+                                    onClick={() => void handlePlaceOrder()}
+                                    disabled={isPlacingOrder || cartItems.length === 0}
+                                    className="w-full bg-emerald-700 text-white font-semibold rounded-lg py-4 shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-colors flex items-center justify-center gap-2 text-lg disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    Place Order - ₱{totalPayment}
+                                    {isPlacingOrder ? "Placing Order..." : `Place Order - PHP ${totalPayment}`}
                                 </motion.button>
                             </div>
                         )}
@@ -289,8 +356,10 @@ export default function CartDrawer({
                             <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4 w-full text-left">Pin Location</h3>
                             <div className="relative w-full h-80 rounded-lg overflow-hidden bg-emerald-50 mb-6 border border-slate-100 flex-shrink-0">
                                 <LocationPicker
-                                    onLocationSelect={(addr) => {
+                                    onLocationSelect={(addr, lat, lng) => {
                                         setAddress(addr);
+                                        setDeliveryLat(lat);
+                                        setDeliveryLng(lng);
                                         setShowMapModal(false);
                                     }}
                                 />
@@ -339,7 +408,23 @@ export default function CartDrawer({
                                         <QrCode className="w-8 h-8 text-emerald-600" />
                                     </div>
                                     <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-1 text-center">Scan to Pay</h3>
-                                    <p className="text-slate-500 text-sm mb-6 text-center">Send exactly <strong className="text-emerald-700 font-bold">₱{totalPayment}</strong> to proceed.</p>
+                                    <p className="text-slate-500 text-sm mb-4 text-center">
+                                        Send exactly <strong className="text-emerald-700 font-bold">PHP {totalPayment}</strong> to proceed.
+                                    </p>
+                                    <div className="mb-6 grid w-full grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+                                        <button
+                                            onClick={() => setWalletProvider("GCash")}
+                                            className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${walletProvider === "GCash" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                                        >
+                                            Pay via GCash
+                                        </button>
+                                        <button
+                                            onClick={() => setWalletProvider("Maya")}
+                                            className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${walletProvider === "Maya" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                                        >
+                                            Pay via Maya
+                                        </button>
+                                    </div>
 
                                     <div className="w-48 h-48 bg-slate-100 rounded-lg mb-6 flex items-center justify-center border-2 border-dashed border-slate-300 relative overflow-hidden">
                                         {/* Placeholder QR Image - swap with real one later */}
@@ -357,7 +442,6 @@ export default function CartDrawer({
                                             <span className="text-sm font-bold text-slate-900 tracking-tight font-mono">+63 912 345 6789</span>
                                         </div>
                                     </div>
-
                                     <motion.button
                                         whileTap={{ scale: 0.96 }}
                                         onClick={() => setPaymentStep("upload")}
@@ -382,10 +466,11 @@ export default function CartDrawer({
 
                                     <motion.button
                                         whileTap={{ scale: 0.96 }}
-                                        onClick={triggerSuccessState}
-                                        className="w-full bg-emerald-700 text-white font-bold rounded-md py-4 shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-colors"
+                                        onClick={() => void submitOrder(walletProvider)}
+                                        disabled={isPlacingOrder}
+                                        className="w-full bg-emerald-700 text-white font-bold rounded-md py-4 shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        Submit Order
+                                        {isPlacingOrder ? "Submitting..." : "Submit Order"}
                                     </motion.button>
                                 </>
                             )}
@@ -445,3 +530,4 @@ function ShoppingBagIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
+
