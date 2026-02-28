@@ -20,7 +20,7 @@ type CartItemRow = {
   cart_id: string;
   product_id: string;
   quantity: number;
-  products: ProductRow[] | null;
+  products: ProductRow | ProductRow[] | null;
 };
 
 export interface CartItemWithProduct {
@@ -78,14 +78,14 @@ export function useCart(user: User | null) {
 
       if (items) {
         setCartItems((items as unknown as CartItemRow[]).map((item) => {
-          const p = item.products?.[0];
+          const p = Array.isArray(item.products) ? item.products[0] : item.products;
           return {
             id: item.id,
             cart_id: item.cart_id,
             product_id: item.product_id,
             quantity: item.quantity,
             name: p?.name ?? "",
-            price: p?.price ?? 0,
+            price: Number(p?.price ?? 0),
             image: p?.image_url ?? "/placeholder.png",
             description: p?.description ?? "",
             category: p?.category ?? "",
