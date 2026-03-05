@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { SVGProps, useState } from "react";
+import { SVGProps, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Minus, MapPin, CreditCard, Banknote, Calendar, CheckCircle2, Truck, Store, Upload, QrCode } from "lucide-react";
 import Image from "next/image";
@@ -9,6 +9,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { placeOrder } from "@/lib/orders/placeOrder";
 import LocationPicker from "./LocationPicker";
+
+const DEFAULT_CART_ADDRESS = "Tap to set location map";
+const SAVED_PLACE_DATA_KEY_PREFIX = "saved_place_data_";
 
 export interface CartItem extends Product {
     quantity: number;
@@ -41,9 +44,12 @@ export default function CartDrawer({
     const [showSuccess, setShowSuccess] = useState(false);
     const [deliveryMode, setDeliveryMode] = useState<"delivery" | "pickup">("delivery");
     const [showMapModal, setShowMapModal] = useState(false);
-    const [address, setAddress] = useState("Tap to set location map");
+    const [address, setAddress] = useState(DEFAULT_CART_ADDRESS);
     const [deliveryLat, setDeliveryLat] = useState<number | null>(null);
     const [deliveryLng, setDeliveryLng] = useState<number | null>(null);
+    const [savedAddress, setSavedAddress] = useState<string | null>(null);
+    const [savedAddressLat, setSavedAddressLat] = useState<number | null>(null);
+    const [savedAddressLng, setSavedAddressLng] = useState<number | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentStep, setPaymentStep] = useState<"qr" | "upload">("qr");
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -52,6 +58,56 @@ export default function CartDrawer({
     const totalAmount = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
     const shippingFee = deliveryMode === "delivery" ? 50 : 0;
     const totalPayment = totalAmount + shippingFee;
+
+    useEffect(() => {
+        if (!user?.id || !isOpen) return;
+
+        const dataStorageKey = `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`;
+        const legacyStorageKey = `saved_place_${user.id}`;
+        const dataSaved = window.localStorage.getItem(dataStorageKey);
+        const legacySaved = window.localStorage.getItem(legacyStorageKey);
+
+        let resolvedAddress = legacySaved?.trim() ? legacySaved : null;
+        let resolvedLat: number | null = null;
+        let resolvedLng: number | null = null;
+
+        if (dataSaved) {
+            try {
+                const parsed = JSON.parse(dataSaved) as { address?: string; lat?: number | null; lng?: number | null };
+                if (typeof parsed.address === "string" && parsed.address.trim()) {
+                    resolvedAddress = parsed.address;
+                }
+                resolvedLat = typeof parsed.lat === "number" ? parsed.lat : null;
+                resolvedLng = typeof parsed.lng === "number" ? parsed.lng : null;
+            } catch {
+                resolvedAddress = legacySaved?.trim() ? legacySaved : null;
+            }
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            setSavedAddress(resolvedAddress);
+            setSavedAddressLat(resolvedLat);
+            setSavedAddressLng(resolvedLng);
+
+            if (resolvedAddress && address === DEFAULT_CART_ADDRESS) {
+                setAddress(resolvedAddress);
+                setDeliveryLat(resolvedLat);
+                setDeliveryLng(resolvedLng);
+            }
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [user?.id, isOpen, address]);
+
+    const applySavedAddress = () => {
+        if (!savedAddress) return;
+        setAddress(savedAddress);
+        setDeliveryLat(savedAddressLat);
+        setDeliveryLng(savedAddressLng);
+        setOrderError(null);
+    };
 
     const fetchProfile = async () => {
         if (!user) return null;
@@ -67,8 +123,8 @@ export default function CartDrawer({
     const submitOrder = async (method: "COD" | "GCash" | "Maya") => {
         if (!user) return;
         if (cartItems.length === 0) return;
-        if (deliveryMode === "delivery" && (!address || address === "Tap to set location map")) {
-            setOrderError("Please pin your delivery location first.");
+        if (deliveryMode === "delivery" && (!address || address === DEFAULT_CART_ADDRESS)) {
+            setOrderError("Please select or pin your delivery address first.");
             return;
         }
 
@@ -247,6 +303,18 @@ export default function CartDrawer({
                                         {deliveryMode === "delivery" && (
                                             <div>
                                                 <div className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Delivery Address</div>
+                                                {savedAddress && (
+                                                    <button
+                                                        onClick={applySavedAddress}
+                                                        className={`mb-2 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${address === savedAddress
+                                                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                                            }`}
+                                                    >
+                                                        <MapPin className="h-3.5 w-3.5" />
+                                                        {address === savedAddress ? "Using saved address from Settings" : "Use saved address from Settings"}
+                                                    </button>
+                                                )}
                                                 <div
                                                     onClick={() => setShowMapModal(true)}
                                                     className="relative cursor-pointer rounded-md overflow-hidden bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors"

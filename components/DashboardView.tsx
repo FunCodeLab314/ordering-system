@@ -21,6 +21,7 @@ const promoSlides = [
 
 const chatMessages: Array<{ id: number; sender: "store" | "user"; text: string; time: string }> = [];
 const DEFAULT_SAVED_PLACE = "Pin a location to save your place.";
+const SAVED_PLACE_DATA_KEY_PREFIX = "saved_place_data_";
 
 interface DashboardViewProps {
     user: SupabaseUser | null;
@@ -78,6 +79,8 @@ export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart
     const [settingsPage, setSettingsPage] = useState<"main" | "account-security" | "addresses" | "payment-methods">("main");
     const [showPasswordFields, setShowPasswordFields] = useState(false);
     const [savedPlaces, setSavedPlaces] = useState<string>(DEFAULT_SAVED_PLACE);
+    const [savedPlaceLat, setSavedPlaceLat] = useState<number | null>(null);
+    const [savedPlaceLng, setSavedPlaceLng] = useState<number | null>(null);
     const [profileFullName, setProfileFullName] = useState("");
     const [profilePhone, setProfilePhone] = useState("");
     const [profileEmail, setProfileEmail] = useState("");
@@ -125,9 +128,31 @@ export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart
 
         hasLoadedSavedPlaceRef.current = false;
         const storageKey = `saved_place_${user.id}`;
-        const saved = window.localStorage.getItem(storageKey);
+        const dataStorageKey = `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`;
+        const legacySaved = window.localStorage.getItem(storageKey);
+        const dataSaved = window.localStorage.getItem(dataStorageKey);
+
+        let resolvedAddress = legacySaved?.trim() ? legacySaved : DEFAULT_SAVED_PLACE;
+        let resolvedLat: number | null = null;
+        let resolvedLng: number | null = null;
+
+        if (dataSaved) {
+            try {
+                const parsed = JSON.parse(dataSaved) as { address?: string; lat?: number | null; lng?: number | null };
+                if (typeof parsed.address === "string" && parsed.address.trim()) {
+                    resolvedAddress = parsed.address;
+                }
+                resolvedLat = typeof parsed.lat === "number" ? parsed.lat : null;
+                resolvedLng = typeof parsed.lng === "number" ? parsed.lng : null;
+            } catch {
+                resolvedAddress = legacySaved?.trim() ? legacySaved : DEFAULT_SAVED_PLACE;
+            }
+        }
+
         const timeoutId = window.setTimeout(() => {
-            setSavedPlaces(saved?.trim() ? saved : DEFAULT_SAVED_PLACE);
+            setSavedPlaces(resolvedAddress);
+            setSavedPlaceLat(resolvedLat);
+            setSavedPlaceLng(resolvedLng);
             hasLoadedSavedPlaceRef.current = true;
         }, 0);
 
@@ -138,8 +163,17 @@ export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart
 
     useEffect(() => {
         if (!user?.id || !hasLoadedSavedPlaceRef.current) return;
+
         window.localStorage.setItem(`saved_place_${user.id}`, savedPlaces);
-    }, [user?.id, savedPlaces]);
+        window.localStorage.setItem(
+            `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`,
+            JSON.stringify({
+                address: savedPlaces,
+                lat: savedPlaceLat,
+                lng: savedPlaceLng,
+            })
+        );
+    }, [user?.id, savedPlaces, savedPlaceLat, savedPlaceLng]);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -1046,9 +1080,9 @@ export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart
                                         <div>
                                             <label className="block text-xs font-semibold text-slate-500 mb-1">Phone Number</label>
                                             <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm select-none">ðŸ‡µðŸ‡­</span>
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-bold tracking-wide text-slate-500 select-none">+63</span>
                                                 <input type="tel" value={profilePhone} onChange={(event) => setProfilePhone(event.target.value)} placeholder="+63 9XX XXX XXXX"
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 pl-9 pr-3 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-500 transition-all" />
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 pl-14 pr-3 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-500 transition-all" />
                                             </div>
                                         </div>
                                         <div>
@@ -1513,10 +1547,15 @@ export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart
                             <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4 w-full text-left">Manage Saved Places</h3>
                             <div className="relative w-full h-80 rounded-lg overflow-hidden bg-emerald-50 mb-6 border border-slate-100 flex-shrink-0">
                                 <LocationPicker
-                                    onLocationSelect={(addr) => {
+                                    onLocationSelect={(addr, lat, lng) => {
                                         setSavedPlaces(addr);
+                                        setSavedPlaceLat(lat);
+                                        setSavedPlaceLng(lng);
                                         setShowMapModal(false);
                                     }}
+                                    initialAddress={savedPlaces}
+                                    initialLat={savedPlaceLat ?? undefined}
+                                    initialLng={savedPlaceLng ?? undefined}
                                 />
                             </div>
                             <motion.button
