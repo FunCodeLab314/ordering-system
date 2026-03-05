@@ -43,6 +43,7 @@ export default function Home() {
             key="dashboard"
             user={user}
             cartCount={cartCount}
+            cartItems={cartItems}
             onOpenCart={() => setIsCartOpen(true)}
             onAddToCart={handleAddToCart}
             onLogout={signOut}

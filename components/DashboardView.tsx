@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShoppingBag, Leaf, ShoppingCart, User, Star, X, MapPin, CreditCard, Settings, HelpCircle, ChevronRight, Store, ReceiptText, Bell, MessageCircle, Send, ArrowLeft, Headset, Banknote, Smartphone, Plus, Check, Circle } from "lucide-react";
+import { Search, ShoppingBag, Leaf, ShoppingCart, User, Star, X, MapPin, CreditCard, Settings, HelpCircle, ChevronRight, Store, ReceiptText, Bell, MessageCircle, Send, ArrowLeft, Headset, Banknote, Smartphone, Plus, Check, Circle, PencilLine, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -26,6 +26,13 @@ const SAVED_PLACE_DATA_KEY_PREFIX = "saved_place_data_";
 interface DashboardViewProps {
     user: SupabaseUser | null;
     cartCount: number;
+    cartItems: Array<{
+        product_id: string;
+        name: string;
+        image: string;
+        quantity: number;
+        price: number;
+    }>;
     onOpenCart: () => void;
     onAddToCart: (product: Product) => void;
     onLogout: () => void;
@@ -63,7 +70,7 @@ function getUserMetadataString(user: SupabaseUser | null, keys: string[]): strin
     return "";
 }
 
-export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart, onLogout, shouldRedirectToOrders, onRedirectHandled }: DashboardViewProps) {
+export default function DashboardView({ user, cartCount, cartItems, onOpenCart, onAddToCart, onLogout, shouldRedirectToOrders, onRedirectHandled }: DashboardViewProps) {
     const { products, loading: productsLoading } = useProducts();
     const { orders, loading: ordersLoading } = useOrders(user);
     const { messages, unreadCount: messagesUnread, markRead, markAllRead } = useOrderMessages(user);
@@ -93,7 +100,9 @@ export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart
     const [showNotifications, setShowNotifications] = useState(false);
     const [chatMessage, setChatMessage] = useState("");
     const [orderAnimKey, setOrderAnimKey] = useState(0);
+    const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
     const hasLoadedSavedPlaceRef = useRef(false);
+    const addToCartToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const displayName =
         profileFullName.trim() ||
@@ -104,6 +113,13 @@ export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart
     const hasAccountSecurityCompleted = Boolean((profileFullName.trim() || metadataName) && profilePhone.trim());
     const hasAddressCompleted = savedPlaces.trim() !== DEFAULT_SAVED_PLACE;
     const needsProfileCompletion = !hasAccountSecurityCompleted || !hasAddressCompleted;
+    const toastItems = [...cartItems]
+        .sort((a, b) => {
+            if (a.product_id === lastAddedProductId) return -1;
+            if (b.product_id === lastAddedProductId) return 1;
+            return 0;
+        })
+        .slice(0, 4);
 
     useEffect(() => {
         if (shouldRedirectToOrders) {
@@ -311,10 +327,31 @@ export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart
         return matchesCategory && matchesSearch;
     });
 
+    useEffect(() => {
+        return () => {
+            if (addToCartToastTimerRef.current) {
+                clearTimeout(addToCartToastTimerRef.current);
+            }
+        };
+    }, []);
+
     const handleAddToCart = (product: Product) => {
         onAddToCart(product);
+        setLastAddedProductId(product.id);
         setShowToast(true);
-        setTimeout(() => setShowToast(false), 2000);
+
+        if (addToCartToastTimerRef.current) {
+            clearTimeout(addToCartToastTimerRef.current);
+        }
+
+        addToCartToastTimerRef.current = setTimeout(() => {
+            setShowToast(false);
+        }, 4500);
+    };
+
+    const openCartFromToast = () => {
+        setShowToast(false);
+        onOpenCart();
     };
 
     return (
@@ -328,13 +365,54 @@ export default function DashboardView({ user, cartCount, onOpenCart, onAddToCart
             <AnimatePresence>
                 {showToast && (
                     <motion.div
-                        initial={{ opacity: 0, y: -50, x: "-50%" }}
-                        animate={{ opacity: 1, y: 0, x: "-50%" }}
-                        exit={{ opacity: 0, y: -50, x: "-50%" }}
-                        className="fixed top-6 left-1/2 z-[60] bg-slate-900 text-white px-6 py-3 rounded-lg shadow-lg shadow-slate-900/20 font-medium flex items-center gap-2"
+                        initial={{ opacity: 0, y: -30, x: "-50%", scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }}
+                        exit={{ opacity: 0, y: -30, x: "-50%", scale: 0.96 }}
+                        className="fixed top-4 left-1/2 z-[60] w-[min(92vw,430px)] rounded-xl border border-slate-700 bg-slate-900/95 p-4 text-white shadow-2xl shadow-slate-900/30 backdrop-blur-md"
                     >
-                        <Leaf className="w-4 h-4 text-emerald-400" strokeWidth={2} />
-                        Added to your cart!
+                        <div className="flex items-center gap-2">
+                            <Leaf className="h-5 w-5 text-emerald-400" strokeWidth={2} />
+                            <p className="text-lg font-bold leading-none">Added to cart</p>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-300">Your selected items are ready. You can continue shopping or checkout now.</p>
+
+                        <div className="mt-3 space-y-2 rounded-lg bg-slate-800/70 p-2.5">
+                            {toastItems.length === 0 ? (
+                                <p className="text-xs text-slate-300">Cart is empty.</p>
+                            ) : (
+                                toastItems.map((item) => (
+                                    <div key={item.product_id} className="flex items-center justify-between gap-2">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <div className="relative h-8 w-8 overflow-hidden rounded-md bg-slate-700">
+                                                <Image src={item.image || "/placeholder.png"} alt={item.name} fill className="object-cover" />
+                                            </div>
+                                            <p className="truncate text-xs font-semibold text-slate-100">{item.name}</p>
+                                        </div>
+                                        <p className="shrink-0 text-[11px] font-bold text-emerald-300">x{item.quantity}</p>
+                                    </div>
+                                ))
+                            )}
+                            {cartItems.length > toastItems.length && (
+                                <p className="text-[11px] font-semibold text-slate-300">+{cartItems.length - toastItems.length} more item(s)</p>
+                            )}
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                            <button
+                                onClick={openCartFromToast}
+                                className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-100 transition-colors hover:bg-slate-700"
+                            >
+                                <PencilLine className="h-3.5 w-3.5" />
+                                Edit Cart
+                            </button>
+                            <button
+                                onClick={openCartFromToast}
+                                className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-500"
+                            >
+                                Proceed
+                                <ArrowRight className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
