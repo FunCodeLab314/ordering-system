@@ -362,6 +362,9 @@ export default function CartDrawer({
                                         setDeliveryLng(lng);
                                         setShowMapModal(false);
                                     }}
+                                    initialAddress={address}
+                                    initialLat={deliveryLat ?? undefined}
+                                    initialLng={deliveryLng ?? undefined}
                                 />
                             </div>
                             <motion.button

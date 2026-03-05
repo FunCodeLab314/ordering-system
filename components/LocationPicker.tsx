@@ -1,15 +1,69 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Map, { GeolocateControl, NavigationControl, ViewStateChangeEvent } from "react-map-gl";
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MapPin, ArrowLeft } from "lucide-react";
+import { MapPin, ArrowLeft, LocateFixed, Loader2 } from "lucide-react";
 
 interface LocationPickerProps {
     onLocationSelect: (address: string, lat: number, lng: number) => void;
     initialAddress?: string;
     initialLat?: number;
     initialLng?: number;
+}
+
+interface MapboxContextItem {
+    id?: string;
+    text?: string;
+}
+
+interface MapboxFeature {
+    address?: string;
+    context?: MapboxContextItem[];
+    place_name?: string;
+    place_type?: string[];
+    text?: string;
+}
+
+interface ReverseGeocodeResponse {
+    features?: MapboxFeature[];
+}
+
+interface ResolvedAddressParts {
+    barangay: string;
+    city: string;
+}
+
+function firstNonEmpty(values: Array<string | undefined>): string {
+    return values.find((value) => Boolean(value?.trim()))?.trim() ?? "";
+}
+
+function findContextByPrefix(context: MapboxContextItem[], prefixes: string[]): string {
+    const found = context.find((item) => {
+        const id = item.id ?? "";
+        return prefixes.some((prefix) => id.startsWith(prefix));
+    });
+    return found?.text?.trim() ?? "";
+}
+
+function extractAddressParts(features: MapboxFeature[]): ResolvedAddressParts {
+    const primaryFeature = features[0];
+    const context = primaryFeature?.context ?? [];
+
+    const barangayFromKeyword = context.find((item) =>
+        /barangay|brgy/i.test(item.text ?? "")
+    )?.text;
+
+    const neighborhood = findContextByPrefix(context, ["neighborhood"]);
+    const locality = findContextByPrefix(context, ["locality"]);
+    const district = findContextByPrefix(context, ["district"]);
+    const place = findContextByPrefix(context, ["place"]);
+    const region = findContextByPrefix(context, ["region"]);
+
+    const barangay = firstNonEmpty([barangayFromKeyword, neighborhood, locality, district]);
+    const city = firstNonEmpty([place, locality, district, region]);
+
+    return { barangay, city };
 }
 
 export default function LocationPicker({ onLocationSelect, initialLat, initialLng }: LocationPickerProps) {
@@ -29,12 +83,86 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
 
     const [isMoving, setIsMoving] = useState(false);
     const [step, setStep] = useState<"map" | "form">("map");
+    const [isLocating, setIsLocating] = useState(false);
+    const [isResolvingAddress, setIsResolvingAddress] = useState(false);
+    const [locationError, setLocationError] = useState<string | null>(null);
+    const [detectedArea, setDetectedArea] = useState("");
 
     // Form states
     const [street, setStreet] = useState("");
     const [subdivision, setSubdivision] = useState("");
     const [barangay, setBarangay] = useState("");
     const [city, setCity] = useState("");
+
+    const reverseGeocodeCoordinates = useCallback(async (lat: number, lng: number) => {
+        if (!mapboxToken) return;
+
+        setIsResolvingAddress(true);
+        setLocationError(null);
+
+        try {
+            const response = await fetch(
+                `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}&language=en&limit=5&types=address,neighborhood,locality,place,district,poi`
+            );
+
+            if (!response.ok) {
+                throw new Error("Reverse geocoding failed.");
+            }
+
+            const data = (await response.json()) as ReverseGeocodeResponse;
+            const features = data.features ?? [];
+            const resolvedAddress = extractAddressParts(features);
+
+            setBarangay(resolvedAddress.barangay);
+            setCity(resolvedAddress.city);
+            setDetectedArea(features[0]?.place_name ?? "");
+        } catch {
+            setLocationError("We could not detect barangay/city from this pin. You can still fill them manually.");
+            setDetectedArea("");
+        } finally {
+            setIsResolvingAddress(false);
+        }
+    }, [mapboxToken]);
+
+    const locateCurrentPosition = useCallback(() => {
+        if (!navigator.geolocation) {
+            setLocationError("Geolocation is not supported in this browser.");
+            return;
+        }
+
+        setIsLocating(true);
+        setLocationError(null);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+
+                setViewState((previous) => ({
+                    ...previous,
+                    latitude,
+                    longitude,
+                    zoom: Math.max(previous.zoom, 16),
+                }));
+                setMarker({ latitude, longitude });
+                void reverseGeocodeCoordinates(latitude, longitude);
+                setIsLocating(false);
+            },
+            (error) => {
+                if (error.code === error.PERMISSION_DENIED) {
+                    setLocationError("Location permission denied. Allow it to auto-detect your barangay and city.");
+                } else {
+                    setLocationError("Unable to get your current location.");
+                }
+                setIsLocating(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }, [reverseGeocodeCoordinates]);
+
+    useEffect(() => {
+        void locateCurrentPosition();
+    }, [locateCurrentPosition]);
 
     const onMove = useCallback((evt: ViewStateChangeEvent) => {
         setViewState(evt.viewState);
@@ -44,7 +172,8 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
         });
     }, []);
 
-    const handlePinConfirmed = () => {
+    const handlePinConfirmed = async () => {
+        await reverseGeocodeCoordinates(marker.latitude, marker.longitude);
         setStep("form");
     };
 
@@ -102,6 +231,22 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
                     {/* Target Reticle Shadow */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-black/15 rounded-lg blur-[2px] pointer-events-none transition-opacity duration-200" style={{ opacity: isMoving ? 0.3 : 0.8 }} />
 
+                    <div className="absolute top-4 left-4 right-4 z-10 flex flex-col gap-2">
+                        <button
+                            onClick={locateCurrentPosition}
+                            disabled={isLocating}
+                            className="self-start inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+                            {isLocating ? "Locating..." : "Use My Current Location"}
+                        </button>
+                        {locationError && (
+                            <p className="max-w-xs rounded-lg bg-red-50/95 px-3 py-2 text-[11px] font-medium text-red-600 shadow-sm">
+                                {locationError}
+                            </p>
+                        )}
+                    </div>
+
                     <div className="absolute bottom-6 left-4 right-4 z-10 flex flex-col gap-2">
                         <div className="bg-white/90 backdrop-blur-md px-4 py-3 rounded-xl shadow-lg border border-slate-100 text-center mx-auto w-full md:w-auto">
                             <p className="text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-0.5">Coordinates</p>
@@ -109,9 +254,10 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
                         </div>
                         <button
                             onClick={handlePinConfirmed}
-                            className="w-full bg-emerald-700 text-white font-bold rounded-lg py-4 shadow-xl hover:bg-emerald-800 transition-colors shadow-emerald-900/20 active:scale-[0.98]"
+                            disabled={isResolvingAddress}
+                            className="w-full bg-emerald-700 text-white font-bold rounded-lg py-4 shadow-xl hover:bg-emerald-800 transition-colors shadow-emerald-900/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            Confirm Address Area
+                            {isResolvingAddress ? "Confirming..." : "Confirm Address Area"}
                         </button>
                     </div>
                 </>
@@ -128,6 +274,13 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
                     </div>
 
                     <div className="p-5 flex flex-col gap-4 flex-1">
+                        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-xs text-emerald-900">
+                            <p className="font-semibold">
+                                {isResolvingAddress ? "Detecting barangay and city from your pinned location..." : "Barangay and city are auto-detected from the pinned location."}
+                            </p>
+                            {detectedArea && <p className="mt-1 text-[11px] text-emerald-700">{detectedArea}</p>}
+                        </div>
+
                         <div>
                             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Street Name *</label>
                             <input
