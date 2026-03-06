@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
+import mapboxgl from "mapbox-gl";
 import { ArrowLeft, Loader2, LocateFixed, MapPin } from "lucide-react";
 
 interface LocationPickerProps {
@@ -21,6 +21,22 @@ interface LatLng {
     longitude: number;
 }
 
+interface MapboxContextItem {
+    id?: string;
+    text?: string;
+}
+
+interface MapboxFeature {
+    place_type?: string[];
+    text?: string;
+    place_name?: string;
+    context?: MapboxContextItem[];
+}
+
+interface MapboxReverseGeocodeResponse {
+    features?: MapboxFeature[];
+}
+
 const DEFAULT_LOCATION: LatLng = {
     longitude: 121.0223,
     latitude: 14.5547,
@@ -30,40 +46,43 @@ function firstNonEmpty(values: Array<string | undefined>): string {
     return values.find((value) => Boolean(value?.trim()))?.trim() ?? "";
 }
 
-function extractAddressParts(results: google.maps.GeocoderResult[]): ResolvedAddressParts {
-    const components = results[0]?.address_components ?? [];
-    const findByType = (types: string[]) =>
-        components.find((component) => types.some((type) => component.types.includes(type)))?.long_name?.trim() ?? "";
+function findContextText(feature: MapboxFeature, prefixes: string[]): string {
+    return (
+        feature.context?.find((item) => prefixes.some((prefix) => item.id?.startsWith(prefix)))?.text?.trim() ?? ""
+    );
+}
+
+function extractAddressParts(features: MapboxFeature[]): ResolvedAddressParts {
+    const candidateFeatures = features ?? [];
 
     const barangay = firstNonEmpty([
-        findByType(["sublocality_level_1"]),
-        findByType(["sublocality", "neighborhood"]),
-        findByType(["administrative_area_level_4"]),
-        findByType(["administrative_area_level_3"]),
+        candidateFeatures.find((feature) => feature.place_type?.includes("neighborhood"))?.text,
+        candidateFeatures.find((feature) => feature.place_type?.includes("locality"))?.text,
+        candidateFeatures.find((feature) => feature.place_type?.includes("district"))?.text,
+        ...candidateFeatures.map((feature) => findContextText(feature, ["neighborhood.", "locality.", "district."])),
     ]);
 
     const city = firstNonEmpty([
-        findByType(["locality"]),
-        findByType(["administrative_area_level_2"]),
-        findByType(["administrative_area_level_1"]),
+        candidateFeatures.find((feature) => feature.place_type?.includes("place"))?.text,
+        candidateFeatures.find((feature) => feature.place_type?.includes("locality"))?.text,
+        ...candidateFeatures.map((feature) => findContextText(feature, ["place.", "region."])),
     ]);
 
     return { barangay, city };
 }
 
 export default function LocationPicker({ onLocationSelect, initialLat, initialLng }: LocationPickerProps) {
-    const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
-    const { isLoaded, loadError } = useJsApiLoader({
-        id: "ordering-system-google-maps",
-        googleMapsApiKey,
-    });
+    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
+    const initialCenterRef = useRef<[number, number]>([
+        initialLng ?? DEFAULT_LOCATION.longitude,
+        initialLat ?? DEFAULT_LOCATION.latitude,
+    ]);
+    const initialZoomRef = useRef(14);
 
-    const mapRef = useRef<google.maps.Map | null>(null);
-    const [zoom, setZoom] = useState(14);
-    const [center, setCenter] = useState<LatLng>({
-        longitude: initialLng ?? DEFAULT_LOCATION.longitude,
-        latitude: initialLat ?? DEFAULT_LOCATION.latitude,
-    });
+    const mapContainerRef = useRef<HTMLDivElement | null>(null);
+    const mapRef = useRef<mapboxgl.Map | null>(null);
+
+    const [isMapReady, setIsMapReady] = useState(false);
     const [marker, setMarker] = useState<LatLng>({
         longitude: initialLng ?? DEFAULT_LOCATION.longitude,
         latitude: initialLat ?? DEFAULT_LOCATION.latitude,
@@ -81,53 +100,77 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
     const [barangay, setBarangay] = useState("");
     const [city, setCity] = useState("");
 
-    const syncCenterFromMap = useCallback(() => {
-        const map = mapRef.current;
-        if (!map) return;
+    useEffect(() => {
+        if (!mapboxToken || !mapContainerRef.current || mapRef.current) return;
 
-        const mapCenter = map.getCenter();
-        if (!mapCenter) return;
+        mapboxgl.accessToken = mapboxToken;
+        const map = new mapboxgl.Map({
+            container: mapContainerRef.current,
+            style: "mapbox://styles/mapbox/streets-v12",
+            center: initialCenterRef.current,
+            zoom: initialZoomRef.current,
+            attributionControl: false,
+        });
 
-        const latitude = mapCenter.lat();
-        const longitude = mapCenter.lng();
-        const nextZoom = map.getZoom();
+        mapRef.current = map;
 
-        setCenter({ latitude, longitude });
-        setMarker({ latitude, longitude });
-        if (typeof nextZoom === "number") {
-            setZoom(nextZoom);
-        }
-    }, []);
+        map.on("load", () => {
+            setIsMapReady(true);
+        });
 
-    const reverseGeocodeCoordinates = useCallback(async (lat: number, lng: number) => {
-        if (!isLoaded || !window.google) return;
+        map.on("movestart", () => {
+            setIsMoving(true);
+        });
 
-        setIsResolvingAddress(true);
-        setLocationError(null);
+        map.on("moveend", () => {
+            const mapCenter = map.getCenter();
+            setMarker({ latitude: mapCenter.lat, longitude: mapCenter.lng });
+            setIsMoving(false);
+        });
 
-        try {
-            const geocoder = new window.google.maps.Geocoder();
-            const results = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
-                geocoder.geocode({ location: { lat, lng } }, (response, status) => {
-                    if (status === "OK" && response) {
-                        resolve(response);
-                        return;
-                    }
-                    reject(new Error(status));
-                });
-            });
+        return () => {
+            map.remove();
+            mapRef.current = null;
+            setIsMapReady(false);
+        };
+    }, [mapboxToken]);
 
-            const resolvedAddress = extractAddressParts(results);
-            setBarangay(resolvedAddress.barangay);
-            setCity(resolvedAddress.city);
-            setDetectedArea(results[0]?.formatted_address ?? "");
-        } catch {
-            setLocationError("We could not detect barangay/city from this pin. You can still fill them manually.");
-            setDetectedArea("");
-        } finally {
-            setIsResolvingAddress(false);
-        }
-    }, [isLoaded]);
+    const reverseGeocodeCoordinates = useCallback(
+        async (lat: number, lng: number) => {
+            if (!mapboxToken) return;
+
+            setIsResolvingAddress(true);
+            setLocationError(null);
+
+            try {
+                const response = await fetch(
+                    `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}&types=address,neighborhood,locality,district,place,region&limit=10`
+                );
+
+                if (!response.ok) {
+                    throw new Error("GEOCODING_FAILED");
+                }
+
+                const data = (await response.json()) as MapboxReverseGeocodeResponse;
+                const features = data.features ?? [];
+                const resolvedAddress = extractAddressParts(features);
+
+                setBarangay(resolvedAddress.barangay);
+                setCity(resolvedAddress.city);
+                setDetectedArea(features[0]?.place_name ?? "");
+
+                if (!resolvedAddress.barangay || !resolvedAddress.city) {
+                    setLocationError("We could not detect barangay/city from this pin. You can still fill them manually.");
+                }
+            } catch {
+                setLocationError("We could not detect barangay/city from this pin. You can still fill them manually.");
+                setDetectedArea("");
+            } finally {
+                setIsResolvingAddress(false);
+            }
+        },
+        [mapboxToken]
+    );
 
     const locateCurrentPosition = useCallback(() => {
         if (!navigator.geolocation) {
@@ -143,13 +186,10 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
                 const latitude = position.coords.latitude;
                 const longitude = position.coords.longitude;
 
-                setCenter({ latitude, longitude });
                 setMarker({ latitude, longitude });
-                setZoom((previous) => Math.max(previous, 16));
 
                 if (mapRef.current) {
-                    mapRef.current.panTo({ lat: latitude, lng: longitude });
-                    mapRef.current.setZoom(Math.max(mapRef.current.getZoom() ?? 14, 16));
+                    mapRef.current.easeTo({ center: [longitude, latitude], zoom: Math.max(mapRef.current.getZoom(), 16) });
                 }
 
                 void reverseGeocodeCoordinates(latitude, longitude);
@@ -168,9 +208,9 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
     }, [reverseGeocodeCoordinates]);
 
     useEffect(() => {
-        if (!isLoaded) return;
+        if (!isMapReady) return;
         void locateCurrentPosition();
-    }, [isLoaded, locateCurrentPosition]);
+    }, [isMapReady, locateCurrentPosition]);
 
     const handlePinConfirmed = async () => {
         await reverseGeocodeCoordinates(marker.latitude, marker.longitude);
@@ -187,40 +227,15 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
         onLocationSelect(addressString, marker.latitude, marker.longitude);
     };
 
-    if (!googleMapsApiKey) {
+    if (!mapboxToken) {
         return (
             <div className="w-full h-full bg-slate-50 flex items-center justify-center p-6 text-center">
                 <div>
                     <MapPin className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <h3 className="text-slate-900 font-bold mb-2">Google Maps API Key Required</h3>
+                    <h3 className="text-slate-900 font-bold mb-2">Mapbox Access Token Required</h3>
                     <p className="text-slate-500 text-sm max-w-xs">
-                        Please paste your public key into <code>.env.local</code> as <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>.
+                        Paste your token in <code>.env.local</code> as <code>NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code>.
                     </p>
-                </div>
-            </div>
-        );
-    }
-
-    if (loadError) {
-        return (
-            <div className="w-full h-full bg-slate-50 flex items-center justify-center p-6 text-center">
-                <div>
-                    <MapPin className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <h3 className="text-slate-900 font-bold mb-2">Google Maps failed to load</h3>
-                    <p className="text-slate-500 text-sm max-w-xs">
-                        Please verify your API key and allowed referrers, then try again.
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    if (!isLoaded) {
-        return (
-            <div className="w-full h-full bg-slate-50 flex items-center justify-center">
-                <div className="inline-flex items-center gap-2 text-slate-600 text-sm font-semibold">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading map...
                 </div>
             </div>
         );
@@ -230,26 +245,15 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
         <div className="relative w-full h-full bg-slate-50 flex flex-col">
             {step === "map" ? (
                 <>
-                    <GoogleMap
-                        mapContainerStyle={{ width: "100%", height: "100%" }}
-                        center={{ lat: center.latitude, lng: center.longitude }}
-                        zoom={zoom}
-                        onLoad={(map) => {
-                            mapRef.current = map;
-                        }}
-                        onDragStart={() => setIsMoving(true)}
-                        onZoomChanged={() => setIsMoving(true)}
-                        onIdle={() => {
-                            syncCenterFromMap();
-                            setIsMoving(false);
-                        }}
-                        options={{
-                            streetViewControl: false,
-                            mapTypeControl: false,
-                            fullscreenControl: false,
-                            gestureHandling: "greedy",
-                        }}
-                    />
+                    <div ref={mapContainerRef} className="absolute inset-0" />
+                    {!isMapReady && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm">
+                            <div className="inline-flex items-center gap-2 text-slate-600 text-sm font-semibold">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Loading map...
+                            </div>
+                        </div>
+                    )}
 
                     <div
                         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full pointer-events-none z-10 transition-transform duration-200"
