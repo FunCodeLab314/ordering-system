@@ -72,7 +72,7 @@ function extractAddressParts(features: MapboxFeature[]): ResolvedAddressParts {
 }
 
 export default function LocationPicker({ onLocationSelect, initialLat, initialLng }: LocationPickerProps) {
-    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
+    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY ?? "";
     const initialCenterRef = useRef<[number, number]>([
         initialLng ?? DEFAULT_LOCATION.longitude,
         initialLat ?? DEFAULT_LOCATION.latitude,
@@ -234,7 +234,7 @@ export default function LocationPicker({ onLocationSelect, initialLat, initialLn
                     <MapPin className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <h3 className="text-slate-900 font-bold mb-2">Mapbox Access Token Required</h3>
                     <p className="text-slate-500 text-sm max-w-xs">
-                        Paste your token in <code>.env.local</code> as <code>NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code>.
+                        Paste your token in <code>.env.local</code> as <code>NEXT_PUBLIC_MAPBOX_API_KEY</code>.
                     </p>
                 </div>
             </div>
