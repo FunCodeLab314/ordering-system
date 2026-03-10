@@ -1505,7 +1505,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             </div>
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 pb-36 md:pb-32 flex flex-col gap-4">
+                    <div className="flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+8.5rem)] md:pb-32 flex flex-col gap-4">
                         {supportLoading ? (
                             <div className="text-center text-sm font-medium text-slate-400">Loading messages...</div>
                         ) : supportMessages.length === 0 ? (
@@ -1521,7 +1521,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             ))
                         )}
                     </div>
-                    <div className="p-4 border-t border-slate-100 bg-white flex items-center gap-2 sticky bottom-[calc(env(safe-area-inset-bottom)+50px)] sm:bottom-0">
+                    <div className="p-4 border-t border-slate-100 bg-white flex items-center gap-2 sticky bottom-[calc(env(safe-area-inset-bottom)+4rem)] sm:bottom-0 z-20">
                         <input
                             type="text"
                             placeholder="Type a message..."
@@ -1571,7 +1571,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             </span>
                         )}
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                    <div className="flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+10.5rem)] flex flex-col gap-4">
                         <div className="flex justify-start">
                             <div className="max-w-[85%] rounded-lg p-3 shadow-sm bg-white border border-slate-100 text-slate-800 rounded-tl-sm">
                                 <p className="text-sm font-semibold mb-2">Welcome to Custom Orders!</p>
@@ -1719,7 +1719,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             </div>
                         )}
                     </div>
-                    <div className="p-4 border-t border-slate-100 bg-white flex flex-col gap-3 sticky bottom-[calc(env(safe-area-inset-bottom)+50px)] md:bottom-0">
+                    <div className="p-4 border-t border-slate-100 bg-white flex flex-col gap-3 sticky bottom-[calc(env(safe-area-inset-bottom)+4rem)] md:bottom-0 z-20">
                         <div className="flex items-center gap-2">
                             <input
                                 type="text"
