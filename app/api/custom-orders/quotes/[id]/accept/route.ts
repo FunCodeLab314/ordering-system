@@ -45,7 +45,7 @@ export async function POST(_req: Request, { params }: Params) {
 
     const { data: quote, error: quoteError } = await supabase
       .from("custom_order_quotes")
-      .select("id, thread_id, status, quote_phase, unit_price, custom_order_threads!inner(customer_user_id)")
+      .select("id, thread_id, status, quote_phase, unit_price, custom_order_threads!custom_order_quotes_thread_id_fkey!inner(customer_user_id)")
       .eq("id", id)
       .single();
 
