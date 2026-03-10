@@ -136,6 +136,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
     const [customQuoteQuantity, setCustomQuoteQuantity] = useState("1");
     const [customQuoteDeliveryDate, setCustomQuoteDeliveryDate] = useState("");
     const [customQuoteNotes, setCustomQuoteNotes] = useState("");
+    const [showCustomQuoteForm, setShowCustomQuoteForm] = useState(false);
     const [submittingCustomQuote, setSubmittingCustomQuote] = useState(false);
     const [orderAnimKey, setOrderAnimKey] = useState(0);
     const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
@@ -414,6 +415,12 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         setCustomQuoteNotes(customOrderActiveQuote.notes ?? "");
     }, [customOrderActiveQuote]);
 
+    useEffect(() => {
+        if (!customOrderActiveQuote || customOrderActiveQuote.quotePhase !== "blank_from_admin") {
+            setShowCustomQuoteForm(false);
+        }
+    }, [customOrderActiveQuote]);
+
     const handleSubmitCustomerQuoteDetails = async () => {
         if (!customOrderActiveQuote) return;
 
@@ -432,6 +439,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                 deliveryDate: customQuoteDeliveryDate || null,
                 notes: customQuoteNotes || null,
             });
+            setShowCustomQuoteForm(false);
         } finally {
             setSubmittingCustomQuote(false);
         }
@@ -1564,85 +1572,6 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                         )}
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-                        {customOrderActiveQuote && (
-                            <div className="rounded-lg border border-emerald-100 bg-white p-3 shadow-sm">
-                                <div className="flex items-center justify-between gap-2">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-900">{customOrderActiveQuote.title}</p>
-                                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700">
-                                        {customOrderActiveQuote.quotePhase === "blank_from_admin" && "Fill Up"}
-                                        {customOrderActiveQuote.quotePhase === "filled_by_customer" && "Waiting Price"}
-                                        {customOrderActiveQuote.quotePhase === "priced_by_admin" && "Priced"}
-                                    </span>
-                                </div>
-
-                                {customOrderActiveQuote.quotePhase === "blank_from_admin" && (
-                                    <div className="mt-2 space-y-2">
-                                        <textarea
-                                            value={customQuoteDescription}
-                                            onChange={(event) => setCustomQuoteDescription(event.target.value)}
-                                            placeholder="Item details (flavor, size, etc.)"
-                                            className="min-h-20 w-full rounded-md border border-slate-200 p-2 text-sm"
-                                        />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                value={customQuoteQuantity}
-                                                onChange={(event) => setCustomQuoteQuantity(event.target.value)}
-                                                placeholder="Quantity"
-                                                className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
-                                            />
-                                            <input
-                                                type="date"
-                                                value={customQuoteDeliveryDate}
-                                                onChange={(event) => setCustomQuoteDeliveryDate(event.target.value)}
-                                                className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
-                                            />
-                                        </div>
-                                        <textarea
-                                            value={customQuoteNotes}
-                                            onChange={(event) => setCustomQuoteNotes(event.target.value)}
-                                            placeholder="Notes (optional)"
-                                            className="min-h-16 w-full rounded-md border border-slate-200 p-2 text-sm"
-                                        />
-                                        <button
-                                            onClick={() => void handleSubmitCustomerQuoteDetails()}
-                                            disabled={submittingCustomQuote}
-                                            className="inline-flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            {submittingCustomQuote ? "Submitting..." : "Submit Details to Admin"}
-                                        </button>
-                                    </div>
-                                )}
-
-                                {customOrderActiveQuote.quotePhase === "filled_by_customer" && (
-                                    <div className="mt-2 rounded-md bg-amber-50 p-2 text-xs text-amber-700">
-                                        Waiting for admin to set the price.
-                                    </div>
-                                )}
-
-                                {customOrderActiveQuote.quotePhase === "priced_by_admin" && (
-                                    <>
-                                        <p className="mt-2 text-sm text-slate-700">{customOrderActiveQuote.itemDescription}</p>
-                                        <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-slate-600">
-                                            <p>Qty: <span className="font-semibold text-slate-900">{customOrderActiveQuote.quantity}</span></p>
-                                            <p>Unit: <span className="font-semibold text-slate-900">{formatPeso(customOrderActiveQuote.unitPrice)}</span></p>
-                                            <p className="col-span-2">Total: <span className="font-bold text-emerald-700">{formatPeso(customOrderActiveQuote.quotedTotal)}</span></p>
-                                            {customOrderActiveQuote.deliveryDate && <p className="col-span-2">Target date: <span className="font-semibold text-slate-900">{customOrderActiveQuote.deliveryDate}</span></p>}
-                                        </div>
-                                        {customOrderActiveQuote.notes && (
-                                            <p className="mt-2 rounded-md bg-slate-50 p-2 text-xs text-slate-600">{customOrderActiveQuote.notes}</p>
-                                        )}
-                                        <button
-                                            onClick={() => void handleProceedCustomQuote()}
-                                            className="mt-2 inline-flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
-                                        >
-                                            {customOrderActiveQuote.status === "Accepted" ? "Proceed to Checkout" : "Accept & Proceed to Checkout"}
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        )}
                         <div className="flex justify-start">
                             <div className="max-w-[85%] rounded-lg p-3 shadow-sm bg-white border border-slate-100 text-slate-800 rounded-tl-sm">
                                 <p className="text-sm font-semibold mb-2">Welcome to Custom Orders!</p>
@@ -1663,6 +1592,126 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                                     </div>
                                 </div>
                             ))
+                        )}
+                        {customOrderActiveQuote && (
+                            <div className="rounded-xl border border-emerald-100 bg-white p-3 shadow-sm">
+                                <div className="flex items-center justify-between gap-2">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-900">{customOrderActiveQuote.title}</p>
+                                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700">
+                                        {customOrderActiveQuote.quotePhase === "blank_from_admin" && "Fill Up"}
+                                        {customOrderActiveQuote.quotePhase === "filled_by_customer" && "Waiting Price"}
+                                        {customOrderActiveQuote.quotePhase === "priced_by_admin" && "Priced"}
+                                    </span>
+                                </div>
+
+                                {customOrderActiveQuote.quotePhase === "blank_from_admin" && (
+                                    <div className="mt-3 space-y-3">
+                                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                                            <p className="font-semibold">Please fill up the form for your custom order.</p>
+                                            <p className="mt-1 text-amber-800">Once done, Ate Ai will send the price.</p>
+                                        </div>
+
+                                        <button
+                                            onClick={() => setShowCustomQuoteForm((prev) => !prev)}
+                                            className="inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-left text-sm font-semibold text-emerald-900"
+                                        >
+                                            <span>{showCustomQuoteForm ? "Hide Custom Order Form" : "Fill Up Custom Order Form"}</span>
+                                            {showCustomQuoteForm ? <X className="h-4 w-4" /> : <PencilLine className="h-4 w-4" />}
+                                        </button>
+
+                                        <AnimatePresence initial={false}>
+                                            {showCustomQuoteForm && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 12 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: 12 }}
+                                                    transition={{ duration: 0.18 }}
+                                                    className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
+                                                >
+                                                    <label className="block">
+                                                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Item Details</span>
+                                                        <textarea
+                                                            value={customQuoteDescription}
+                                                            onChange={(event) => setCustomQuoteDescription(event.target.value)}
+                                                            placeholder="Item details (flavor, size, etc.)"
+                                                            className="min-h-24 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                                                        />
+                                                    </label>
+
+                                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                        <label className="block">
+                                                            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Quantity</span>
+                                                            <input
+                                                                type="number"
+                                                                min={1}
+                                                                value={customQuoteQuantity}
+                                                                onChange={(event) => setCustomQuoteQuantity(event.target.value)}
+                                                                placeholder="Quantity"
+                                                                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                                            />
+                                                        </label>
+                                                        <label className="block">
+                                                            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Preferred Date (Optional)</span>
+                                                            <input
+                                                                type="date"
+                                                                value={customQuoteDeliveryDate}
+                                                                onChange={(event) => setCustomQuoteDeliveryDate(event.target.value)}
+                                                                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                                            />
+                                                            <span className="mt-1 block text-[11px] text-slate-500">Use this for your target pickup or delivery date.</span>
+                                                        </label>
+                                                    </div>
+
+                                                    <label className="block">
+                                                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Extra Notes (Optional)</span>
+                                                        <textarea
+                                                            value={customQuoteNotes}
+                                                            onChange={(event) => setCustomQuoteNotes(event.target.value)}
+                                                            placeholder="Notes (optional)"
+                                                            className="min-h-16 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                                                        />
+                                                    </label>
+
+                                                    <button
+                                                        onClick={() => void handleSubmitCustomerQuoteDetails()}
+                                                        disabled={submittingCustomQuote}
+                                                        className="inline-flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        {submittingCustomQuote ? "Submitting..." : "Submit Details to Admin"}
+                                                    </button>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                )}
+
+                                {customOrderActiveQuote.quotePhase === "filled_by_customer" && (
+                                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                                        Please wait for Ate Ai to review your form and send the price.
+                                    </div>
+                                )}
+
+                                {customOrderActiveQuote.quotePhase === "priced_by_admin" && (
+                                    <>
+                                        <p className="mt-3 text-sm text-slate-700">{customOrderActiveQuote.itemDescription}</p>
+                                        <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-slate-600">
+                                            <p>Qty: <span className="font-semibold text-slate-900">{customOrderActiveQuote.quantity}</span></p>
+                                            <p>Unit: <span className="font-semibold text-slate-900">{formatPeso(customOrderActiveQuote.unitPrice)}</span></p>
+                                            <p className="col-span-2">Total: <span className="font-bold text-emerald-700">{formatPeso(customOrderActiveQuote.quotedTotal)}</span></p>
+                                            {customOrderActiveQuote.deliveryDate && <p className="col-span-2">Preferred date: <span className="font-semibold text-slate-900">{customOrderActiveQuote.deliveryDate}</span></p>}
+                                        </div>
+                                        {customOrderActiveQuote.notes && (
+                                            <p className="mt-2 rounded-md bg-slate-50 p-2 text-xs text-slate-600">{customOrderActiveQuote.notes}</p>
+                                        )}
+                                        <button
+                                            onClick={() => void handleProceedCustomQuote()}
+                                            className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
+                                        >
+                                            {customOrderActiveQuote.status === "Accepted" ? "Proceed to Checkout" : "Accept & Proceed to Checkout"}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         )}
                         {customOrderError && (
                             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-600">
