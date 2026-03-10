@@ -1505,7 +1505,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             </div>
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                    <div className="flex-1 overflow-y-auto p-4 pb-36 md:pb-32 flex flex-col gap-4">
                         {supportLoading ? (
                             <div className="text-center text-sm font-medium text-slate-400">Loading messages...</div>
                         ) : supportMessages.length === 0 ? (
@@ -1634,7 +1634,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                                                             value={customQuoteDescription}
                                                             onChange={(event) => setCustomQuoteDescription(event.target.value)}
                                                             placeholder="Item details (flavor, size, etc.)"
-                                                            className="min-h-24 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                                                            className="min-h-24 w-full resize-none rounded-md border border-slate-200 bg-white p-2 text-sm"
                                                         />
                                                     </label>
 
@@ -1668,7 +1668,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                                                             value={customQuoteNotes}
                                                             onChange={(event) => setCustomQuoteNotes(event.target.value)}
                                                             placeholder="Notes (optional)"
-                                                            className="min-h-16 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                                                            className="min-h-16 w-full resize-none rounded-md border border-slate-200 bg-white p-2 text-sm"
                                                         />
                                                     </label>
 
