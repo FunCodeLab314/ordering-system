@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 import { createDeliveryAddressData } from "@/lib/deliveryAddress";
-import type { PaymentReceiptExtractionResult } from "@/lib/payments/receiptTypes";
+import { normalizePaymentReference, type PaymentReceiptExtractionResult } from "@/lib/payments/receiptTypes";
 import { createServiceClient } from "@/lib/supabase/service";
 
 type PlaceOrderItemInput = {
@@ -285,6 +285,7 @@ export async function POST(req: NextRequest) {
   if (body.receiptExtraction && (paymentMethod === "GCash" || paymentMethod === "Maya")) {
     const extraction = body.receiptExtraction;
     const extractionStatus = extraction.needsManualReview ? "needs_review" : "completed";
+    const normalizedReference = normalizePaymentReference(extraction.referenceNumber);
 
     const { error: extractionError } = await serviceSupabase.from("payment_receipt_extractions").upsert(
       {
@@ -307,6 +308,14 @@ export async function POST(req: NextRequest) {
     );
 
     if (extractionError) {
+      if (extractionError.code === "23505" && normalizedReference) {
+        await serviceSupabase.from("orders").delete().eq("id", order.id);
+        return NextResponse.json(
+          { error: "This payment reference number has already been used in another order." },
+          { status: 409 }
+        );
+      }
+
       receiptExtractionWarning = `Receipt extraction was not saved: ${extractionError.message}`;
       console.error("Failed to save receipt extraction for order", {
         orderId: order.id,

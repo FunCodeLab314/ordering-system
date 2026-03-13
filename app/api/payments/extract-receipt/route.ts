@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { extractReceiptWithGemini } from "@/lib/payments/geminiReceiptExtraction";
-import type { PaymentReceiptProvider } from "@/lib/payments/receiptTypes";
+import { normalizePaymentReference, type PaymentReceiptProvider } from "@/lib/payments/receiptTypes";
 import { createServiceClient } from "@/lib/supabase/service";
 
 type ExtractReceiptPayload = {
@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (orderId) {
+      const normalizedReference = normalizePaymentReference(result.extraction.referenceNumber);
       const { error: saveError } = await serviceSupabase
         .from("payment_receipt_extractions")
         .upsert(
@@ -101,6 +102,13 @@ export async function POST(req: NextRequest) {
         );
 
       if (saveError) {
+        if (saveError.code === "23505" && normalizedReference) {
+          return NextResponse.json(
+            { error: "This payment reference number has already been used in another order." },
+            { status: 409 }
+          );
+        }
+
         return NextResponse.json({ error: `Failed to save receipt extraction: ${saveError.message}` }, { status: 500 });
       }
     }

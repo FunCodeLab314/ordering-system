@@ -11,3 +11,7 @@ export interface PaymentReceiptExtractionResult {
   transactionTimestamp: string | null;
   needsManualReview: boolean;
 }
+
+export function normalizePaymentReference(reference: string | null | undefined) {
+  return (reference ?? "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "");
+}
