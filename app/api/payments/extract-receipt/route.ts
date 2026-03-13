@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { extractReceiptWithGemini } from "@/lib/payments/geminiReceiptExtraction";
 import type { PaymentReceiptProvider } from "@/lib/payments/receiptTypes";
+import { createServiceClient } from "@/lib/supabase/service";
 
 type ExtractReceiptPayload = {
   provider?: PaymentReceiptProvider;
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
       },
     }
   );
+  const serviceSupabase = createServiceClient();
 
   const {
     data: { user },
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (orderId) {
-      const { error: saveError } = await supabase
+      const { error: saveError } = await serviceSupabase
         .from("payment_receipt_extractions")
         .upsert(
           {
@@ -99,7 +101,7 @@ export async function POST(req: NextRequest) {
         );
 
       if (saveError) {
-        return NextResponse.json({ error: saveError.message }, { status: 500 });
+        return NextResponse.json({ error: `Failed to save receipt extraction: ${saveError.message}` }, { status: 500 });
       }
     }
 

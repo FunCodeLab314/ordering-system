@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 
 import { createDeliveryAddressData } from "@/lib/deliveryAddress";
 import type { PaymentReceiptExtractionResult } from "@/lib/payments/receiptTypes";
+import { createServiceClient } from "@/lib/supabase/service";
 
 type PlaceOrderItemInput = {
   product_id: string;
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
       },
     }
   );
+  const serviceSupabase = createServiceClient();
 
   const {
     data: { user },
@@ -278,11 +280,13 @@ export async function POST(req: NextRequest) {
     price: item.price,
   }));
 
+  let receiptExtractionWarning: string | null = null;
+
   if (body.receiptExtraction && (paymentMethod === "GCash" || paymentMethod === "Maya")) {
     const extraction = body.receiptExtraction;
     const extractionStatus = extraction.needsManualReview ? "needs_review" : "completed";
 
-    const { error: extractionError } = await supabase.from("payment_receipt_extractions").upsert(
+    const { error: extractionError } = await serviceSupabase.from("payment_receipt_extractions").upsert(
       {
         order_id: order.id,
         provider: paymentMethod,
@@ -303,8 +307,11 @@ export async function POST(req: NextRequest) {
     );
 
     if (extractionError) {
-      await supabase.from("orders").delete().eq("id", order.id);
-      return NextResponse.json({ error: "Failed to save receipt extraction" }, { status: 500 });
+      receiptExtractionWarning = `Receipt extraction was not saved: ${extractionError.message}`;
+      console.error("Failed to save receipt extraction for order", {
+        orderId: order.id,
+        error: extractionError.message,
+      });
     }
   }
 
@@ -328,6 +335,7 @@ export async function POST(req: NextRequest) {
     success: true,
     orderId: order.id,
     orderNumber: order.order_number,
+    receiptExtractionWarning,
   });
 }
 
