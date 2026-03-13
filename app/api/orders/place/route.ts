@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+import { createDeliveryAddressData } from "@/lib/deliveryAddress";
+
 type PlaceOrderItemInput = {
   product_id: string;
   quantity: number;
@@ -16,6 +18,18 @@ type PlaceOrderPayload = {
   deliveryAddress?: string | null;
   deliveryLat?: number | null;
   deliveryLng?: number | null;
+  addressSource?: "map" | "manual" | null;
+  regionCode?: string | null;
+  regionName?: string | null;
+  provinceCode?: string | null;
+  provinceName?: string | null;
+  cityMunicipalityCode?: string | null;
+  cityMunicipalityName?: string | null;
+  barangayCode?: string | null;
+  barangayName?: string | null;
+  streetAddress?: string | null;
+  landmark?: string | null;
+  completeAddress?: string | null;
   paymentMethod: "COD" | "GCash" | "Maya";
   scheduledDate?: string | null;
   customerName: string;
@@ -86,6 +100,31 @@ export async function POST(req: NextRequest) {
 
   if (!["COD", "GCash", "Maya"].includes(paymentMethod)) {
     return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
+  }
+
+  const normalizedAddress =
+    deliveryMode === "Delivery"
+      ? createDeliveryAddressData({
+          address: body.deliveryAddress,
+          completeAddress: body.completeAddress,
+          lat: body.deliveryLat,
+          lng: body.deliveryLng,
+          source: body.addressSource === "manual" ? "manual" : "map",
+          regionCode: body.regionCode,
+          regionName: body.regionName,
+          provinceCode: body.provinceCode,
+          provinceName: body.provinceName,
+          cityMunicipalityCode: body.cityMunicipalityCode,
+          cityMunicipalityName: body.cityMunicipalityName,
+          barangayCode: body.barangayCode,
+          barangayName: body.barangayName,
+          streetAddress: body.streetAddress,
+          landmark: body.landmark,
+        })
+      : null;
+
+  if (deliveryMode === "Delivery" && !normalizedAddress?.address.trim()) {
+    return NextResponse.json({ error: "Delivery address is required" }, { status: 400 });
   }
 
   const orderItemsForInsert: Omit<OrderItemPayload, "order_id">[] = [];
@@ -199,12 +238,20 @@ export async function POST(req: NextRequest) {
       customer_name: body.customerName?.trim() || user.email || "Customer",
       customer_phone: body.customerPhone?.trim() || "",
       delivery_mode: deliveryMode,
-      delivery_address:
-        deliveryMode === "Delivery" && body.deliveryLat !== null && body.deliveryLng !== null
-          ? `Pinned (${Number(body.deliveryLat).toFixed(5)}, ${Number(body.deliveryLng).toFixed(5)})`
-          : null,
-      delivery_lat: deliveryMode === "Delivery" ? body.deliveryLat ?? null : null,
-      delivery_lng: deliveryMode === "Delivery" ? body.deliveryLng ?? null : null,
+      delivery_address: deliveryMode === "Delivery" ? normalizedAddress?.address ?? null : null,
+      delivery_lat: deliveryMode === "Delivery" ? normalizedAddress?.lat ?? null : null,
+      delivery_lng: deliveryMode === "Delivery" ? normalizedAddress?.lng ?? null : null,
+      region_code: deliveryMode === "Delivery" ? normalizedAddress?.regionCode ?? null : null,
+      region_name: deliveryMode === "Delivery" ? normalizedAddress?.regionName ?? null : null,
+      province_code: deliveryMode === "Delivery" ? normalizedAddress?.provinceCode ?? null : null,
+      province_name: deliveryMode === "Delivery" ? normalizedAddress?.provinceName ?? null : null,
+      city_municipality_code: deliveryMode === "Delivery" ? normalizedAddress?.cityMunicipalityCode ?? null : null,
+      city_municipality_name: deliveryMode === "Delivery" ? normalizedAddress?.cityMunicipalityName ?? null : null,
+      barangay_code: deliveryMode === "Delivery" ? normalizedAddress?.barangayCode ?? null : null,
+      barangay_name: deliveryMode === "Delivery" ? normalizedAddress?.barangayName ?? null : null,
+      street_address: deliveryMode === "Delivery" ? normalizedAddress?.streetAddress ?? null : null,
+      landmark: deliveryMode === "Delivery" ? normalizedAddress?.landmark ?? null : null,
+      complete_address: deliveryMode === "Delivery" ? normalizedAddress?.completeAddress ?? null : null,
       payment_method: paymentMethod,
       payment_status: paymentStatus,
       status: orderStatus,

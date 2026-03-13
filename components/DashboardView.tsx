@@ -12,6 +12,13 @@ import { useOrderMessages } from "@/hooks/useOrderMessages";
 import { useSupportChat } from "@/hooks/useSupportChat";
 import { useCustomOrderChat } from "@/hooks/useCustomOrderChat";
 import { categories, Product } from "@/lib/data";
+import {
+    DEFAULT_SAVED_PLACE,
+    SAVED_PLACE_DATA_KEY_PREFIX,
+    hasSavedDeliveryAddress,
+    parseStoredDeliveryAddress,
+    type DeliveryAddressData,
+} from "@/lib/deliveryAddress";
 import LocationPicker from "./LocationPicker";
 import ProductModal from "./ProductModal";
 
@@ -20,9 +27,6 @@ const promoSlides = [
     "/images/591286853_1300306458783199_3119486838764724933_n.jpg",
     "/images/591396000_1300306605449851_5261874470759623080_n.jpg"
 ];
-
-const DEFAULT_SAVED_PLACE = "Pin a location to save your place.";
-const SAVED_PLACE_DATA_KEY_PREFIX = "saved_place_data_";
 
 interface DashboardViewProps {
     user: SupabaseUser | null;
@@ -117,9 +121,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
     const [activeTab, setActiveTab] = useState<DashboardTab>("home");
     const [settingsPage, setSettingsPage] = useState<"main" | "account-security" | "addresses" | "payment-methods">("main");
     const [showPasswordFields, setShowPasswordFields] = useState(false);
-    const [savedPlaces, setSavedPlaces] = useState<string>(DEFAULT_SAVED_PLACE);
-    const [savedPlaceLat, setSavedPlaceLat] = useState<number | null>(null);
-    const [savedPlaceLng, setSavedPlaceLng] = useState<number | null>(null);
+    const [savedAddressData, setSavedAddressData] = useState<DeliveryAddressData | null>(null);
     const [profileFullName, setProfileFullName] = useState("");
     const [profilePhone, setProfilePhone] = useState("");
     const [profileEmail, setProfileEmail] = useState("");
@@ -149,8 +151,9 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         authEmail.split("@")[0] ||
         "Customer";
 
+    const savedPlaces = savedAddressData?.address?.trim() || DEFAULT_SAVED_PLACE;
     const hasAccountSecurityCompleted = Boolean((profileFullName.trim() || metadataName) && profilePhone.trim());
-    const hasAddressCompleted = savedPlaces.trim() !== DEFAULT_SAVED_PLACE;
+    const hasAddressCompleted = hasSavedDeliveryAddress(savedAddressData, DEFAULT_SAVED_PLACE);
     const needsProfileCompletion = !hasAccountSecurityCompleted || !hasAddressCompleted;
     const toastItems = [...cartItems]
         .sort((a, b) => {
@@ -186,28 +189,10 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         const dataStorageKey = `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`;
         const legacySaved = window.localStorage.getItem(storageKey);
         const dataSaved = window.localStorage.getItem(dataStorageKey);
-
-        let resolvedAddress = legacySaved?.trim() ? legacySaved : DEFAULT_SAVED_PLACE;
-        let resolvedLat: number | null = null;
-        let resolvedLng: number | null = null;
-
-        if (dataSaved) {
-            try {
-                const parsed = JSON.parse(dataSaved) as { address?: string; lat?: number | null; lng?: number | null };
-                if (typeof parsed.address === "string" && parsed.address.trim()) {
-                    resolvedAddress = parsed.address;
-                }
-                resolvedLat = typeof parsed.lat === "number" ? parsed.lat : null;
-                resolvedLng = typeof parsed.lng === "number" ? parsed.lng : null;
-            } catch {
-                resolvedAddress = legacySaved?.trim() ? legacySaved : DEFAULT_SAVED_PLACE;
-            }
-        }
+        const parsedSavedAddress = parseStoredDeliveryAddress(dataSaved, legacySaved, DEFAULT_SAVED_PLACE);
 
         const timeoutId = window.setTimeout(() => {
-            setSavedPlaces(resolvedAddress);
-            setSavedPlaceLat(resolvedLat);
-            setSavedPlaceLng(resolvedLng);
+            setSavedAddressData(parsedSavedAddress);
             hasLoadedSavedPlaceRef.current = true;
         }, 0);
 
@@ -222,13 +207,9 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         window.localStorage.setItem(`saved_place_${user.id}`, savedPlaces);
         window.localStorage.setItem(
             `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`,
-            JSON.stringify({
-                address: savedPlaces,
-                lat: savedPlaceLat,
-                lng: savedPlaceLng,
-            })
+            JSON.stringify(savedAddressData)
         );
-    }, [user?.id, savedPlaces, savedPlaceLat, savedPlaceLng]);
+    }, [user?.id, savedAddressData, savedPlaces]);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -1886,20 +1867,16 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             initial={{ scale: 0.95, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-sm bg-white rounded-md p-6 shadow-2xl z-10 flex flex-col items-center"
+                            className="relative z-10 flex w-full max-w-lg flex-col items-center rounded-md bg-white p-6 shadow-2xl"
                         >
                             <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4 w-full text-left">Manage Saved Places</h3>
-                            <div className="relative w-full h-80 rounded-lg overflow-hidden bg-emerald-50 mb-6 border border-slate-100 flex-shrink-0">
+                            <div className="relative mb-6 h-[min(72vh,40rem)] w-full flex-shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-emerald-50">
                                 <LocationPicker
-                                    onLocationSelect={(addr, lat, lng) => {
-                                        setSavedPlaces(addr);
-                                        setSavedPlaceLat(lat);
-                                        setSavedPlaceLng(lng);
+                                    onLocationSelect={(selection) => {
+                                        setSavedAddressData(selection);
                                         setShowMapModal(false);
                                     }}
-                                    initialAddress={savedPlaces}
-                                    initialLat={savedPlaceLat ?? undefined}
-                                    initialLng={savedPlaceLng ?? undefined}
+                                    initialValue={savedAddressData}
                                 />
                             </div>
                             <motion.button

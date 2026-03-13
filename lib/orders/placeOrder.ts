@@ -12,6 +12,18 @@ export type PlaceOrderPayload = {
   deliveryAddress: string | null;
   deliveryLat: number | null;
   deliveryLng: number | null;
+  addressSource?: "map" | "manual" | null;
+  regionCode?: string | null;
+  regionName?: string | null;
+  provinceCode?: string | null;
+  provinceName?: string | null;
+  cityMunicipalityCode?: string | null;
+  cityMunicipalityName?: string | null;
+  barangayCode?: string | null;
+  barangayName?: string | null;
+  streetAddress?: string | null;
+  landmark?: string | null;
+  completeAddress?: string | null;
   paymentMethod: "COD" | "GCash" | "Maya";
   scheduledDate: string | null;
   customerName: string;

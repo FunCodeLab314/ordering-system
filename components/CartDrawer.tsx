@@ -5,13 +5,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Minus, MapPin, CreditCard, Banknote, Calendar, CheckCircle2, Truck, Store, Upload, QrCode } from "lucide-react";
 import Image from "next/image";
 import { Product } from "@/lib/data";
+import {
+    DEFAULT_CART_ADDRESS,
+    SAVED_PLACE_DATA_KEY_PREFIX,
+    hasSavedDeliveryAddress,
+    parseStoredDeliveryAddress,
+    type DeliveryAddressData,
+} from "@/lib/deliveryAddress";
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { placeOrder } from "@/lib/orders/placeOrder";
 import LocationPicker from "./LocationPicker";
-
-const DEFAULT_CART_ADDRESS = "Tap to set location map";
-const SAVED_PLACE_DATA_KEY_PREFIX = "saved_place_data_";
 
 export interface CartItem extends Product {
     quantity: number;
@@ -59,12 +63,8 @@ export default function CartDrawer({
     const [showSuccess, setShowSuccess] = useState(false);
     const [deliveryMode, setDeliveryMode] = useState<"delivery" | "pickup">("delivery");
     const [showMapModal, setShowMapModal] = useState(false);
-    const [address, setAddress] = useState(DEFAULT_CART_ADDRESS);
-    const [deliveryLat, setDeliveryLat] = useState<number | null>(null);
-    const [deliveryLng, setDeliveryLng] = useState<number | null>(null);
-    const [savedAddress, setSavedAddress] = useState<string | null>(null);
-    const [savedAddressLat, setSavedAddressLat] = useState<number | null>(null);
-    const [savedAddressLng, setSavedAddressLng] = useState<number | null>(null);
+    const [selectedAddress, setSelectedAddress] = useState<DeliveryAddressData | null>(null);
+    const [savedAddress, setSavedAddress] = useState<DeliveryAddressData | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentStep, setPaymentStep] = useState<"qr" | "upload">("qr");
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -75,6 +75,12 @@ export default function CartDrawer({
     const totalAmount = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0) + customQuoteTotal;
     const shippingFee = deliveryMode === "delivery" ? 50 : 0;
     const totalPayment = totalAmount + shippingFee;
+    const selectedAddressLabel = selectedAddress?.address?.trim() || DEFAULT_CART_ADDRESS;
+    const isUsingSavedAddress =
+        Boolean(savedAddress?.address) &&
+        savedAddress?.address === selectedAddress?.address &&
+        savedAddress?.lat === selectedAddress?.lat &&
+        savedAddress?.lng === selectedAddress?.lng;
 
     useEffect(() => {
         if (!user?.id || !isOpen) return;
@@ -83,46 +89,26 @@ export default function CartDrawer({
         const legacyStorageKey = `saved_place_${user.id}`;
         const dataSaved = window.localStorage.getItem(dataStorageKey);
         const legacySaved = window.localStorage.getItem(legacyStorageKey);
-
-        let resolvedAddress = legacySaved?.trim() ? legacySaved : null;
-        let resolvedLat: number | null = null;
-        let resolvedLng: number | null = null;
-
-        if (dataSaved) {
-            try {
-                const parsed = JSON.parse(dataSaved) as { address?: string; lat?: number | null; lng?: number | null };
-                if (typeof parsed.address === "string" && parsed.address.trim()) {
-                    resolvedAddress = parsed.address;
-                }
-                resolvedLat = typeof parsed.lat === "number" ? parsed.lat : null;
-                resolvedLng = typeof parsed.lng === "number" ? parsed.lng : null;
-            } catch {
-                resolvedAddress = legacySaved?.trim() ? legacySaved : null;
-            }
-        }
+        const parsedSavedAddress = parseStoredDeliveryAddress(dataSaved, legacySaved, DEFAULT_CART_ADDRESS);
 
         const timeoutId = window.setTimeout(() => {
-            setSavedAddress(resolvedAddress);
-            setSavedAddressLat(resolvedLat);
-            setSavedAddressLng(resolvedLng);
-
-            if (resolvedAddress && address === DEFAULT_CART_ADDRESS) {
-                setAddress(resolvedAddress);
-                setDeliveryLat(resolvedLat);
-                setDeliveryLng(resolvedLng);
-            }
+            setSavedAddress(parsedSavedAddress);
+            setSelectedAddress((current) => {
+                if (hasSavedDeliveryAddress(current, DEFAULT_CART_ADDRESS)) {
+                    return current;
+                }
+                return parsedSavedAddress;
+            });
         }, 0);
 
         return () => {
             window.clearTimeout(timeoutId);
         };
-    }, [user?.id, isOpen, address]);
+    }, [user?.id, isOpen]);
 
     const applySavedAddress = () => {
         if (!savedAddress) return;
-        setAddress(savedAddress);
-        setDeliveryLat(savedAddressLat);
-        setDeliveryLng(savedAddressLng);
+        setSelectedAddress(savedAddress);
         setOrderError(null);
     };
 
@@ -140,7 +126,7 @@ export default function CartDrawer({
     const submitOrder = async (method: "COD" | "GCash" | "Maya") => {
         if (!user) return;
         if (!hasCheckoutItems) return;
-        if (deliveryMode === "delivery" && (!address || address === DEFAULT_CART_ADDRESS)) {
+        if (deliveryMode === "delivery" && !hasSavedDeliveryAddress(selectedAddress, DEFAULT_CART_ADDRESS)) {
             setOrderError("Please select or pin your delivery address first.");
             return;
         }
@@ -160,9 +146,21 @@ export default function CartDrawer({
                 })),
                 customQuoteId: customQuoteCheckout?.id ?? null,
                 deliveryMode: deliveryMode === "delivery" ? "Delivery" : "Pick-up",
-                deliveryAddress: deliveryMode === "delivery" ? address : null,
-                deliveryLat: deliveryMode === "delivery" ? deliveryLat : null,
-                deliveryLng: deliveryMode === "delivery" ? deliveryLng : null,
+                deliveryAddress: deliveryMode === "delivery" ? selectedAddress?.address ?? null : null,
+                deliveryLat: deliveryMode === "delivery" ? selectedAddress?.lat ?? null : null,
+                deliveryLng: deliveryMode === "delivery" ? selectedAddress?.lng ?? null : null,
+                addressSource: deliveryMode === "delivery" ? selectedAddress?.source ?? "map" : null,
+                regionCode: deliveryMode === "delivery" ? selectedAddress?.regionCode ?? null : null,
+                regionName: deliveryMode === "delivery" ? selectedAddress?.regionName ?? null : null,
+                provinceCode: deliveryMode === "delivery" ? selectedAddress?.provinceCode ?? null : null,
+                provinceName: deliveryMode === "delivery" ? selectedAddress?.provinceName ?? null : null,
+                cityMunicipalityCode: deliveryMode === "delivery" ? selectedAddress?.cityMunicipalityCode ?? null : null,
+                cityMunicipalityName: deliveryMode === "delivery" ? selectedAddress?.cityMunicipalityName ?? null : null,
+                barangayCode: deliveryMode === "delivery" ? selectedAddress?.barangayCode ?? null : null,
+                barangayName: deliveryMode === "delivery" ? selectedAddress?.barangayName ?? null : null,
+                streetAddress: deliveryMode === "delivery" ? selectedAddress?.streetAddress ?? null : null,
+                landmark: deliveryMode === "delivery" ? selectedAddress?.landmark ?? null : null,
+                completeAddress: deliveryMode === "delivery" ? selectedAddress?.completeAddress ?? selectedAddress?.address ?? null : null,
                 paymentMethod: method,
                 scheduledDate: null,
                 customerName: profile?.full_name?.trim() || metadataName || user.email || "Customer",
@@ -346,16 +344,16 @@ export default function CartDrawer({
                                         {deliveryMode === "delivery" && (
                                             <div>
                                                 <div className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Delivery Address</div>
-                                                {savedAddress && (
+                                                {hasSavedDeliveryAddress(savedAddress, DEFAULT_CART_ADDRESS) && (
                                                     <button
                                                         onClick={applySavedAddress}
-                                                        className={`mb-2 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${address === savedAddress
+                                                        className={`mb-2 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${isUsingSavedAddress
                                                             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                                                             : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                                                             }`}
                                                     >
                                                         <MapPin className="h-3.5 w-3.5" />
-                                                        {address === savedAddress ? "Using saved address from Settings" : "Use saved address from Settings"}
+                                                        {isUsingSavedAddress ? "Using saved address from Settings" : "Use saved address from Settings"}
                                                     </button>
                                                 )}
                                                 <div
@@ -368,7 +366,7 @@ export default function CartDrawer({
                                                         <div className="flex items-center gap-3">
                                                             <MapPin className="w-5 h-5 text-emerald-600" strokeWidth={1.5} />
                                                             <span className="font-medium text-slate-700">
-                                                                {address}
+                                                                {selectedAddressLabel}
                                                             </span>
                                                         </div>
                                                         <span className="text-xs font-semibold text-slate-400">EDIT</span>
@@ -474,20 +472,16 @@ export default function CartDrawer({
                             initial={{ scale: 0.95, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-sm bg-white rounded-md p-6 shadow-2xl z-10 flex flex-col items-center"
+                            className="relative z-10 flex w-full max-w-lg flex-col items-center rounded-md bg-white p-6 shadow-2xl"
                         >
                             <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4 w-full text-left">Pin Location</h3>
-                            <div className="relative w-full h-80 rounded-lg overflow-hidden bg-emerald-50 mb-6 border border-slate-100 flex-shrink-0">
+                            <div className="relative mb-6 h-[min(72vh,40rem)] w-full flex-shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-emerald-50">
                                 <LocationPicker
-                                    onLocationSelect={(addr, lat, lng) => {
-                                        setAddress(addr);
-                                        setDeliveryLat(lat);
-                                        setDeliveryLng(lng);
+                                    onLocationSelect={(selection) => {
+                                        setSelectedAddress(selection);
                                         setShowMapModal(false);
                                     }}
-                                    initialAddress={address}
-                                    initialLat={deliveryLat ?? undefined}
-                                    initialLng={deliveryLng ?? undefined}
+                                    initialValue={selectedAddress ?? savedAddress}
                                 />
                             </div>
                             <motion.button
