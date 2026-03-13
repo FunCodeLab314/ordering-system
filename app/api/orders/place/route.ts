@@ -228,8 +228,8 @@ export async function POST(req: NextRequest) {
   const deliveryFee = deliveryMode === "Delivery" ? 50 : 0;
   const isWalletPayment = paymentMethod === "GCash" || paymentMethod === "Maya";
   // Match current schema enum values: Pending | Awaiting Verification | Verified | Rejected
-  const paymentStatus = isWalletPayment ? "Verified" : "Pending";
-  const orderStatus = isWalletPayment ? "Preparing" : "Pending";
+  const paymentStatus = isWalletPayment ? "Awaiting Verification" : "Pending";
+  const orderStatus = "Pending";
 
   const scheduledDate =
     body.scheduledDate && !Number.isNaN(Date.parse(body.scheduledDate))
