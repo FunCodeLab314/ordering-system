@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
-import { ArrowLeft, Loader2, LocateFixed, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, LocateFixed, MapPin } from "lucide-react";
 import {
     buildCompleteAddress,
     createDeliveryAddressData,
@@ -155,6 +155,7 @@ export default function LocationPicker({ onLocationSelect, initialValue = null }
     const [detectedArea, setDetectedArea] = useState(initialSelection.address);
     const [mapFormError, setMapFormError] = useState<string | null>(null);
     const [manualError, setManualError] = useState<string | null>(null);
+    const [showUndetectedAddressDialog, setShowUndetectedAddressDialog] = useState(false);
 
     const [streetAddress, setStreetAddress] = useState(initialSelection.streetAddress ?? "");
     const [landmark, setLandmark] = useState(initialSelection.landmark ?? "");
@@ -220,7 +221,7 @@ export default function LocationPicker({ onLocationSelect, initialValue = null }
 
     const reverseGeocodeCoordinates = useCallback(
         async (lat: number, lng: number) => {
-            if (!mapboxToken) return;
+            if (!mapboxToken) return false;
 
             setIsResolvingAddress(true);
             setLocationError(null);
@@ -244,10 +245,13 @@ export default function LocationPicker({ onLocationSelect, initialValue = null }
 
                 if (!resolvedAddress.barangay || !resolvedAddress.city) {
                     setLocationError("We could not detect barangay/city from this pin. You can still use Add manually.");
+                    return false;
                 }
+                return true;
             } catch {
                 setLocationError("We could not detect barangay/city from this pin. You can still use Add manually.");
                 setDetectedArea("");
+                return false;
             } finally {
                 setIsResolvingAddress(false);
             }
@@ -461,6 +465,7 @@ export default function LocationPicker({ onLocationSelect, initialValue = null }
 
     const openManualForm = async () => {
         setManualError(null);
+        setShowUndetectedAddressDialog(false);
         setView("manual");
 
         try {
@@ -471,8 +476,14 @@ export default function LocationPicker({ onLocationSelect, initialValue = null }
     };
 
     const handlePinConfirmed = async () => {
-        await reverseGeocodeCoordinates(marker.latitude, marker.longitude);
+        const hasDetectedAddress = await reverseGeocodeCoordinates(marker.latitude, marker.longitude);
         setMapFormError(null);
+        setShowUndetectedAddressDialog(false);
+        if (!hasDetectedAddress) {
+            setShowUndetectedAddressDialog(true);
+            return;
+        }
+
         setView("details");
     };
 
@@ -895,6 +906,41 @@ export default function LocationPicker({ onLocationSelect, initialValue = null }
                             Add manually
                         </button>
                     </div>
+
+                    {showUndetectedAddressDialog && (
+                        <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/35 p-4 backdrop-blur-[2px]">
+                            <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+                                <div className="flex items-start gap-3">
+                                    <div className="mt-0.5 rounded-full bg-amber-100 p-2 text-amber-700">
+                                        <AlertTriangle className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-base font-bold text-slate-900">Address not detected</h4>
+                                        <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                                            We could not detect the barangay and city from this pin. Continue with the manual address form instead.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="mt-5 flex gap-3">
+                                    <button
+                                        onClick={() => setShowUndetectedAddressDialog(false)}
+                                        className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                                    >
+                                        Keep pinning
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowUndetectedAddressDialog(false);
+                                            void openManualForm();
+                                        }}
+                                        className="flex-1 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-800"
+                                    >
+                                        Add manually
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </>
             ) : (
                 <div className="flex flex-1 flex-col overflow-y-auto bg-white">

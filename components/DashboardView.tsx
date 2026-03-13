@@ -15,9 +15,13 @@ import { categories, Product } from "@/lib/data";
 import {
     DEFAULT_SAVED_PLACE,
     SAVED_PLACE_DATA_KEY_PREFIX,
+    SAVED_PLACE_LIST_KEY_PREFIX,
+    createSavedDeliveryAddressEntry,
     hasSavedDeliveryAddress,
+    parseStoredDeliveryAddressList,
     parseStoredDeliveryAddress,
     type DeliveryAddressData,
+    type SavedDeliveryAddressEntry,
 } from "@/lib/deliveryAddress";
 import LocationPicker from "./LocationPicker";
 import ProductModal from "./ProductModal";
@@ -122,6 +126,8 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
     const [settingsPage, setSettingsPage] = useState<"main" | "account-security" | "addresses" | "payment-methods">("main");
     const [showPasswordFields, setShowPasswordFields] = useState(false);
     const [savedAddressData, setSavedAddressData] = useState<DeliveryAddressData | null>(null);
+    const [savedAddressList, setSavedAddressList] = useState<SavedDeliveryAddressEntry[]>([]);
+    const [addressBeingEditedId, setAddressBeingEditedId] = useState<string | null>(null);
     const [profileFullName, setProfileFullName] = useState("");
     const [profilePhone, setProfilePhone] = useState("");
     const [profileEmail, setProfileEmail] = useState("");
@@ -152,6 +158,9 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         "Customer";
 
     const savedPlaces = savedAddressData?.address?.trim() || DEFAULT_SAVED_PLACE;
+    const editingAddress = addressBeingEditedId
+        ? savedAddressList.find((entry) => entry.id === addressBeingEditedId) ?? null
+        : null;
     const hasAccountSecurityCompleted = Boolean((profileFullName.trim() || metadataName) && profilePhone.trim());
     const hasAddressCompleted = hasSavedDeliveryAddress(savedAddressData, DEFAULT_SAVED_PLACE);
     const needsProfileCompletion = !hasAccountSecurityCompleted || !hasAddressCompleted;
@@ -187,12 +196,16 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         hasLoadedSavedPlaceRef.current = false;
         const storageKey = `saved_place_${user.id}`;
         const dataStorageKey = `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`;
+        const listStorageKey = `${SAVED_PLACE_LIST_KEY_PREFIX}${user.id}`;
         const legacySaved = window.localStorage.getItem(storageKey);
         const dataSaved = window.localStorage.getItem(dataStorageKey);
+        const listSaved = window.localStorage.getItem(listStorageKey);
         const parsedSavedAddress = parseStoredDeliveryAddress(dataSaved, legacySaved, DEFAULT_SAVED_PLACE);
+        const parsedSavedAddressList = parseStoredDeliveryAddressList(listSaved, parsedSavedAddress, DEFAULT_SAVED_PLACE);
 
         const timeoutId = window.setTimeout(() => {
-            setSavedAddressData(parsedSavedAddress);
+            setSavedAddressList(parsedSavedAddressList);
+            setSavedAddressData(parsedSavedAddress ?? parsedSavedAddressList[0]?.data ?? null);
             hasLoadedSavedPlaceRef.current = true;
         }, 0);
 
@@ -209,7 +222,11 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
             `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`,
             JSON.stringify(savedAddressData)
         );
-    }, [user?.id, savedAddressData, savedPlaces]);
+        window.localStorage.setItem(
+            `${SAVED_PLACE_LIST_KEY_PREFIX}${user.id}`,
+            JSON.stringify(savedAddressList)
+        );
+    }, [user?.id, savedAddressData, savedAddressList, savedPlaces]);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -444,6 +461,44 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
             deliveryDate: customOrderActiveQuote.deliveryDate,
             notes: customOrderActiveQuote.notes,
         });
+    };
+
+    const openAddAddressModal = () => {
+        setAddressBeingEditedId(null);
+        setShowMapModal(true);
+    };
+
+    const openEditAddressModal = (entryId: string) => {
+        const selectedEntry = savedAddressList.find((entry) => entry.id === entryId);
+        if (!selectedEntry) return;
+
+        setAddressBeingEditedId(entryId);
+        setShowMapModal(true);
+    };
+
+    const handleAddressSaved = (selection: DeliveryAddressData) => {
+        if (addressBeingEditedId) {
+            const updatedList = savedAddressList.map((entry) =>
+                entry.id === addressBeingEditedId
+                    ? {
+                        ...entry,
+                        data: selection,
+                    }
+                    : entry
+            );
+
+            setSavedAddressList(updatedList);
+            setSavedAddressData(selection);
+            setAddressBeingEditedId(null);
+            setShowMapModal(false);
+            return;
+        }
+
+        const newEntry = createSavedDeliveryAddressEntry(selection);
+        setSavedAddressList((current) => [...current, newEntry]);
+        setSavedAddressData(selection);
+        setAddressBeingEditedId(null);
+        setShowMapModal(false);
     };
 
     return (
@@ -1348,24 +1403,49 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                                 <h2 className="text-base font-bold text-slate-900">My Addresses</h2>
                             </div>
                             <div className="p-4">
-                                <div className="bg-white border border-slate-200 rounded-md overflow-hidden">
-                                    <div
-                                        onClick={() => setShowMapModal(true)}
-                                        className="flex items-center justify-between px-4 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center shrink-0">
-                                                <MapPin className="w-4 h-4 text-emerald-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-semibold text-slate-800">Saved Location</p>
-                                                <p className="text-xs text-slate-400 mt-0.5 max-w-[220px] truncate">{savedPlaces}</p>
-                                            </div>
+                                <div className="space-y-3">
+                                    {savedAddressList.length === 0 ? (
+                                        <div className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                                            No saved addresses yet. Add your first delivery address.
                                         </div>
-                                        <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
-                                    </div>
+                                    ) : (
+                                        savedAddressList.map((entry) => {
+                                            const isDefault =
+                                                savedAddressData?.address === entry.data.address &&
+                                                savedAddressData?.completeAddress === entry.data.completeAddress &&
+                                                savedAddressData?.lat === entry.data.lat &&
+                                                savedAddressData?.lng === entry.data.lng;
+
+                                            return (
+                                                <div key={entry.id} className="bg-white border border-slate-200 rounded-md overflow-hidden">
+                                                    <div
+                                                        onClick={() => openEditAddressModal(entry.id)}
+                                                        className="flex items-center justify-between px-4 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center shrink-0">
+                                                                <MapPin className="w-4 h-4 text-emerald-600" />
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="text-sm font-semibold text-slate-800">Saved Location</p>
+                                                                    {isDefault && (
+                                                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                                                            Default
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-slate-400 mt-0.5 max-w-[220px] truncate">{entry.data.address}</p>
+                                                            </div>
+                                                        </div>
+                                                        <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
                                 </div>
-                                <motion.button whileTap={{ scale: 0.98 }} onClick={() => setShowMapModal(true)}
+                                <motion.button whileTap={{ scale: 0.98 }} onClick={openAddAddressModal}
                                     className="w-full mt-3 border border-emerald-600 text-emerald-700 font-semibold rounded-lg py-3 hover:bg-emerald-50 transition-colors text-sm">
                                     + Add New Address
                                 </motion.button>
@@ -1860,7 +1940,10 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setShowMapModal(false)}
+                            onClick={() => {
+                                setShowMapModal(false);
+                                setAddressBeingEditedId(null);
+                            }}
                             className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
                         />
                         <motion.div
@@ -1872,16 +1955,16 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4 w-full text-left">Manage Saved Places</h3>
                             <div className="relative mb-6 h-[min(72vh,40rem)] w-full flex-shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-emerald-50">
                                 <LocationPicker
-                                    onLocationSelect={(selection) => {
-                                        setSavedAddressData(selection);
-                                        setShowMapModal(false);
-                                    }}
-                                    initialValue={savedAddressData}
+                                    onLocationSelect={handleAddressSaved}
+                                    initialValue={editingAddress?.data ?? null}
                                 />
                             </div>
                             <motion.button
                                 whileTap={{ scale: 0.96 }}
-                                onClick={() => setShowMapModal(false)}
+                                onClick={() => {
+                                    setShowMapModal(false);
+                                    setAddressBeingEditedId(null);
+                                }}
                                 className="w-full text-slate-500 font-semibold rounded-md py-3 hover:bg-slate-50 transition-colors"
                             >
                                 Close

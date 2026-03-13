@@ -18,6 +18,11 @@ export interface DeliveryAddressData {
   completeAddress: string | null;
 }
 
+export interface SavedDeliveryAddressEntry {
+  id: string;
+  data: DeliveryAddressData;
+}
+
 type DeliveryAddressInput = Omit<Partial<DeliveryAddressData>, "address" | "completeAddress"> & {
   address?: string | null;
   completeAddress?: string | null;
@@ -26,6 +31,7 @@ type DeliveryAddressInput = Omit<Partial<DeliveryAddressData>, "address" | "comp
 export const DEFAULT_CART_ADDRESS = "Tap to set location map";
 export const DEFAULT_SAVED_PLACE = "Pin a location to save your place.";
 export const SAVED_PLACE_DATA_KEY_PREFIX = "saved_place_data_";
+export const SAVED_PLACE_LIST_KEY_PREFIX = "saved_place_list_";
 
 function normalizeString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -128,4 +134,52 @@ export function parseStoredDeliveryAddress(
 
 export function hasSavedDeliveryAddress(addressData: DeliveryAddressData | null, fallbackText: string) {
   return Boolean(addressData?.address.trim() && addressData.address.trim() !== fallbackText);
+}
+
+export function createSavedDeliveryAddressEntry(
+  addressData: DeliveryAddressData,
+  id?: string | null
+): SavedDeliveryAddressEntry {
+  return {
+    id:
+      normalizeString(id) ??
+      (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `addr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+    data: createDeliveryAddressData(addressData),
+  };
+}
+
+export function parseStoredDeliveryAddressList(
+  serialized: string | null,
+  fallbackEntry: DeliveryAddressData | null,
+  fallbackText: string
+) {
+  if (serialized) {
+    try {
+      const parsed = JSON.parse(serialized) as Array<{ id?: string | null; data?: DeliveryAddressInput | null }>;
+      const normalized = parsed
+        .map((entry) => {
+          const data = createDeliveryAddressData(entry?.data);
+          if (!hasSavedDeliveryAddress(data, fallbackText)) {
+            return null;
+          }
+
+          return createSavedDeliveryAddressEntry(data, entry?.id);
+        })
+        .filter((entry): entry is SavedDeliveryAddressEntry => Boolean(entry));
+
+      if (normalized.length > 0) {
+        return normalized;
+      }
+    } catch {
+      // Ignore malformed list storage and fall back below.
+    }
+  }
+
+  if (!hasSavedDeliveryAddress(fallbackEntry, fallbackText)) {
+    return [];
+  }
+
+  return fallbackEntry ? [createSavedDeliveryAddressEntry(fallbackEntry)] : [];
 }
