@@ -19,7 +19,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { placeOrder } from "@/lib/orders/placeOrder";
-import type { PaymentReceiptExtractionResult } from "@/lib/payments/receiptTypes";
+import { normalizePaymentReference, type PaymentReceiptExtractionResult } from "@/lib/payments/receiptTypes";
 import LocationPicker from "./LocationPicker";
 
 export interface CartItem extends Product {
@@ -286,6 +286,32 @@ export default function CartDrawer({
                 return;
             }
 
+            if (method !== "COD") {
+                const walletReceipt = receiptExtraction;
+                const normalizedReference = normalizePaymentReference(walletReceipt?.referenceNumber);
+
+                if (!normalizedReference) {
+                    setReceiptExtractionError("We could not verify the receipt reference number. Please upload a clearer receipt.");
+                    setOrderError(null);
+                    setIsPlacingOrder(false);
+                    return;
+                }
+
+                if (!walletReceipt || walletReceipt.amount === null || walletReceipt.amount <= 0) {
+                    setReceiptExtractionError("We could not verify the receipt amount. Please upload a clearer receipt.");
+                    setOrderError(null);
+                    setIsPlacingOrder(false);
+                    return;
+                }
+
+                if (Math.abs(walletReceipt.amount - totalPayment) > 0.01) {
+                    setReceiptExtractionError(`Receipt amount does not match your order total of PHP ${totalPayment.toFixed(2)}.`);
+                    setOrderError(null);
+                    setIsPlacingOrder(false);
+                    return;
+                }
+            }
+
             await placeOrder({
                 cartItems: cartItems.map((item) => ({
                     product_id: item.id,
@@ -323,12 +349,13 @@ export default function CartDrawer({
             const message = error instanceof Error ? error.message : "Failed to place order";
             const isDuplicateReceipt = message.toLowerCase().includes("reference number has already been used");
 
-            setOrderError(message);
-
             if (isDuplicateReceipt) {
                 setReceiptExtractionError("This receipt reference was already used for another order. Please upload a different payment receipt.");
                 setReceiptExtraction(null);
                 setReceiptFileName("");
+                setOrderError(null);
+            } else {
+                setOrderError(message);
             }
         } finally {
             setIsPlacingOrder(false);

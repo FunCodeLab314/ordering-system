@@ -227,9 +227,40 @@ export async function POST(req: NextRequest) {
   const subtotal = orderItemsForInsert.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const deliveryFee = deliveryMode === "Delivery" ? 50 : 0;
   const isWalletPayment = paymentMethod === "GCash" || paymentMethod === "Maya";
+  const expectedWalletAmount = subtotal + deliveryFee;
   // Match current schema enum values: Pending | Awaiting Verification | Verified | Rejected
   const paymentStatus = isWalletPayment ? "Awaiting Verification" : "Pending";
   const orderStatus = "Pending";
+
+  if (isWalletPayment) {
+    if (!body.receiptExtraction) {
+      return NextResponse.json({ error: "A valid wallet receipt is required before you can submit this order." }, { status: 400 });
+    }
+
+    const normalizedReference = normalizePaymentReference(body.receiptExtraction.referenceNumber);
+    if (!normalizedReference) {
+      return NextResponse.json(
+        { error: "We could not verify the receipt reference number. Please upload a clearer receipt." },
+        { status: 400 }
+      );
+    }
+
+    if (body.receiptExtraction.amount === null || body.receiptExtraction.amount <= 0) {
+      return NextResponse.json(
+        { error: "We could not verify the receipt amount. Please upload a clearer receipt." },
+        { status: 400 }
+      );
+    }
+
+    if (Math.abs(body.receiptExtraction.amount - expectedWalletAmount) > 0.01) {
+      return NextResponse.json(
+        {
+          error: `Receipt amount does not match your order total of PHP ${expectedWalletAmount.toFixed(2)}.`,
+        },
+        { status: 400 }
+      );
+    }
+  }
 
   const scheduledDate =
     body.scheduledDate && !Number.isNaN(Date.parse(body.scheduledDate))
@@ -280,8 +311,6 @@ export async function POST(req: NextRequest) {
     price: item.price,
   }));
 
-  let receiptExtractionWarning: string | null = null;
-
   if (body.receiptExtraction && (paymentMethod === "GCash" || paymentMethod === "Maya")) {
     const extraction = body.receiptExtraction;
     const extractionStatus = extraction.needsManualReview ? "needs_review" : "completed";
@@ -316,11 +345,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      receiptExtractionWarning = `Receipt extraction was not saved: ${extractionError.message}`;
-      console.error("Failed to save receipt extraction for order", {
-        orderId: order.id,
-        error: extractionError.message,
-      });
+      await serviceSupabase.from("orders").delete().eq("id", order.id);
+      return NextResponse.json(
+        { error: `Failed to save verified receipt details: ${extractionError.message}` },
+        { status: 500 }
+      );
     }
   }
 
@@ -344,7 +373,6 @@ export async function POST(req: NextRequest) {
     success: true,
     orderId: order.id,
     orderNumber: order.order_number,
-    receiptExtractionWarning,
   });
 }
 
