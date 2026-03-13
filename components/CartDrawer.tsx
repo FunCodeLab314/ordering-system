@@ -1,16 +1,20 @@
 ﻿"use client";
 
-import { SVGProps, useEffect, useState } from "react";
+import { SVGProps, useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Minus, MapPin, CreditCard, Banknote, Calendar, CheckCircle2, Truck, Store, Upload, QrCode } from "lucide-react";
+import { X, Plus, Minus, MapPin, CreditCard, Banknote, Calendar, CheckCircle2, Truck, Store, Upload, QrCode, Phone } from "lucide-react";
 import Image from "next/image";
 import { Product } from "@/lib/data";
 import {
+    createSavedDeliveryAddressEntry,
     DEFAULT_CART_ADDRESS,
     SAVED_PLACE_DATA_KEY_PREFIX,
+    SAVED_PLACE_LIST_KEY_PREFIX,
     hasSavedDeliveryAddress,
+    parseStoredDeliveryAddressList,
     parseStoredDeliveryAddress,
     type DeliveryAddressData,
+    type SavedDeliveryAddressEntry,
 } from "@/lib/deliveryAddress";
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
@@ -63,12 +67,17 @@ export default function CartDrawer({
     const [showSuccess, setShowSuccess] = useState(false);
     const [deliveryMode, setDeliveryMode] = useState<"delivery" | "pickup">("delivery");
     const [showMapModal, setShowMapModal] = useState(false);
+    const [showAddressSelectorModal, setShowAddressSelectorModal] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState<DeliveryAddressData | null>(null);
     const [savedAddress, setSavedAddress] = useState<DeliveryAddressData | null>(null);
+    const [savedAddressList, setSavedAddressList] = useState<SavedDeliveryAddressEntry[]>([]);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentStep, setPaymentStep] = useState<"qr" | "upload">("qr");
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const [orderError, setOrderError] = useState<string | null>(null);
+    const [accountPhone, setAccountPhone] = useState("");
+    const [deliveryPhone, setDeliveryPhone] = useState("");
+    const [isLoadingDeliveryPhone, setIsLoadingDeliveryPhone] = useState(false);
 
     const customQuoteTotal = customQuoteCheckout ? customQuoteCheckout.quotedTotal : 0;
     const hasCheckoutItems = cartItems.length > 0 || Boolean(customQuoteCheckout);
@@ -81,23 +90,28 @@ export default function CartDrawer({
         savedAddress?.address === selectedAddress?.address &&
         savedAddress?.lat === selectedAddress?.lat &&
         savedAddress?.lng === selectedAddress?.lng;
+    const hasSavedAddressOptions = savedAddressList.length > 0;
 
     useEffect(() => {
         if (!user?.id || !isOpen) return;
 
         const dataStorageKey = `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`;
+        const listStorageKey = `${SAVED_PLACE_LIST_KEY_PREFIX}${user.id}`;
         const legacyStorageKey = `saved_place_${user.id}`;
         const dataSaved = window.localStorage.getItem(dataStorageKey);
+        const listSaved = window.localStorage.getItem(listStorageKey);
         const legacySaved = window.localStorage.getItem(legacyStorageKey);
         const parsedSavedAddress = parseStoredDeliveryAddress(dataSaved, legacySaved, DEFAULT_CART_ADDRESS);
+        const parsedSavedAddressList = parseStoredDeliveryAddressList(listSaved, parsedSavedAddress, DEFAULT_CART_ADDRESS);
 
         const timeoutId = window.setTimeout(() => {
             setSavedAddress(parsedSavedAddress);
+            setSavedAddressList(parsedSavedAddressList);
             setSelectedAddress((current) => {
                 if (hasSavedDeliveryAddress(current, DEFAULT_CART_ADDRESS)) {
                     return current;
                 }
-                return parsedSavedAddress;
+                return parsedSavedAddress ?? parsedSavedAddressList[0]?.data ?? null;
             });
         }, 0);
 
@@ -106,13 +120,49 @@ export default function CartDrawer({
         };
     }, [user?.id, isOpen]);
 
-    const applySavedAddress = () => {
-        if (!savedAddress) return;
-        setSelectedAddress(savedAddress);
+    const selectSavedAddress = (addressEntry: SavedDeliveryAddressEntry) => {
+        setSelectedAddress(addressEntry.data);
+        setSavedAddress(addressEntry.data);
         setOrderError(null);
+        setShowAddressSelectorModal(false);
+
+        if (!user?.id) return;
+
+        window.localStorage.setItem(`saved_place_${user.id}`, addressEntry.data.address || DEFAULT_CART_ADDRESS);
+        window.localStorage.setItem(
+            `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`,
+            JSON.stringify(addressEntry.data)
+        );
     };
 
-    const fetchProfile = async () => {
+    const saveNewAddressFromCart = (selection: DeliveryAddressData) => {
+        if (!user?.id) {
+            setSelectedAddress(selection);
+            setShowMapModal(false);
+            return;
+        }
+
+        const nextEntry = createSavedDeliveryAddressEntry(selection);
+        const nextList = [...savedAddressList, nextEntry];
+
+        setSavedAddress(selection);
+        setSavedAddressList(nextList);
+        setSelectedAddress(selection);
+        setOrderError(null);
+        setShowMapModal(false);
+
+        window.localStorage.setItem(`saved_place_${user.id}`, selection.address || DEFAULT_CART_ADDRESS);
+        window.localStorage.setItem(
+            `${SAVED_PLACE_DATA_KEY_PREFIX}${user.id}`,
+            JSON.stringify(selection)
+        );
+        window.localStorage.setItem(
+            `${SAVED_PLACE_LIST_KEY_PREFIX}${user.id}`,
+            JSON.stringify(nextList)
+        );
+    };
+
+    const fetchProfile = useCallback(async () => {
         if (!user) return null;
         const supabase = createClient();
         const { data } = await supabase
@@ -121,7 +171,30 @@ export default function CartDrawer({
             .eq("id", user.id)
             .maybeSingle();
         return data;
-    };
+    }, [user]);
+
+    useEffect(() => {
+        if (!user?.id || !isOpen) return;
+
+        let active = true;
+
+        const loadDeliveryPhone = async () => {
+            setIsLoadingDeliveryPhone(true);
+            const profile = await fetchProfile();
+            if (!active) return;
+
+            const resolvedPhone = profile?.phone?.trim() ?? "";
+            setAccountPhone(resolvedPhone);
+            setDeliveryPhone((current) => current.trim() || resolvedPhone);
+            setIsLoadingDeliveryPhone(false);
+        };
+
+        void loadDeliveryPhone();
+
+        return () => {
+            active = false;
+        };
+    }, [fetchProfile, isOpen, user?.id]);
 
     const submitOrder = async (method: "COD" | "GCash" | "Maya") => {
         if (!user) return;
@@ -136,6 +209,14 @@ export default function CartDrawer({
 
         try {
             const profile = await fetchProfile();
+            const resolvedAccountPhone = profile?.phone?.trim() || accountPhone;
+            const resolvedDeliveryPhone = deliveryPhone.trim() || resolvedAccountPhone || "";
+
+            if (deliveryMode === "delivery" && !resolvedDeliveryPhone) {
+                setOrderError("Please add a working delivery mobile number before placing the order.");
+                setIsPlacingOrder(false);
+                return;
+            }
 
             await placeOrder({
                 cartItems: cartItems.map((item) => ({
@@ -164,7 +245,7 @@ export default function CartDrawer({
                 paymentMethod: method,
                 scheduledDate: null,
                 customerName: profile?.full_name?.trim() || metadataName || user.email || "Customer",
-                customerPhone: profile?.phone ?? "",
+                customerPhone: resolvedDeliveryPhone,
             });
 
             triggerSuccessState();
@@ -344,20 +425,17 @@ export default function CartDrawer({
                                         {deliveryMode === "delivery" && (
                                             <div>
                                                 <div className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Delivery Address</div>
-                                                {hasSavedDeliveryAddress(savedAddress, DEFAULT_CART_ADDRESS) && (
+                                                {hasSavedAddressOptions && (
                                                     <button
-                                                        onClick={applySavedAddress}
-                                                        className={`mb-2 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${isUsingSavedAddress
-                                                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                                                            }`}
+                                                        onClick={() => setShowAddressSelectorModal(true)}
+                                                        className="mb-2 inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
                                                     >
                                                         <MapPin className="h-3.5 w-3.5" />
-                                                        {isUsingSavedAddress ? "Using saved address from Settings" : "Use saved address from Settings"}
+                                                        Select saved address
                                                     </button>
                                                 )}
                                                 <div
-                                                    onClick={() => setShowMapModal(true)}
+                                                    onClick={() => setShowAddressSelectorModal(true)}
                                                     className="relative cursor-pointer rounded-md overflow-hidden bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors"
                                                 >
                                                     {/* Shopee-style stripe */}
@@ -365,12 +443,49 @@ export default function CartDrawer({
                                                     <div className="p-4 flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
                                                             <MapPin className="w-5 h-5 text-emerald-600" strokeWidth={1.5} />
-                                                            <span className="font-medium text-slate-700">
-                                                                {selectedAddressLabel}
-                                                            </span>
+                                                            <div>
+                                                                <p className="font-medium text-slate-700">{selectedAddressLabel}</p>
+                                                                {isUsingSavedAddress && (
+                                                                    <p className="mt-0.5 text-xs font-semibold text-emerald-700">Using your selected saved address</p>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        <span className="text-xs font-semibold text-slate-400">EDIT</span>
+                                                        <span className="text-xs font-semibold text-slate-400">SELECT</span>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {deliveryMode === "delivery" && (
+                                            <div className="space-y-3">
+                                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="mt-0.5 rounded-lg bg-emerald-100 p-2 text-emerald-700">
+                                                            <Phone className="h-4 w-4" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-slate-800">Delivery Contact Number</p>
+                                                            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                                                                {accountPhone
+                                                                    ? `We will use your account mobile number ${accountPhone} for delivery updates. You can enter another phone number below if the rider should contact a different number.`
+                                                                    : "Add a working mobile number below so the rider has a delivery contact for this order."}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Alternate Delivery Mobile Number</label>
+                                                    <input
+                                                        type="tel"
+                                                        value={deliveryPhone}
+                                                        onChange={(event) => setDeliveryPhone(event.target.value)}
+                                                        placeholder={isLoadingDeliveryPhone ? "Loading mobile number..." : "e.g. 09171234567"}
+                                                        className="w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 transition-colors outline-none focus:border-emerald-500"
+                                                    />
+                                                    <p className="mt-1.5 ml-1 text-xs text-slate-400">
+                                                        Leave this as is to use the account phone number, or replace it for this delivery only.
+                                                    </p>
                                                 </div>
                                             </div>
                                         )}
@@ -457,6 +572,92 @@ export default function CartDrawer({
                 )}
             </AnimatePresence>
 
+            <AnimatePresence>
+                {showAddressSelectorModal && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowAddressSelectorModal(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className="relative z-10 flex w-full max-w-lg flex-col rounded-md bg-white p-6 shadow-2xl"
+                        >
+                            <h3 className="mb-4 text-xl font-bold tracking-tight text-slate-900">Select Delivery Address</h3>
+                            <div className="max-h-[60vh] space-y-3 overflow-y-auto">
+                                {savedAddressList.length === 0 ? (
+                                    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                                        No saved addresses yet. Add one first from My Addresses.
+                                    </div>
+                                ) : (
+                                    savedAddressList.map((entry) => {
+                                        const isSelected =
+                                            selectedAddress?.address === entry.data.address &&
+                                            selectedAddress?.completeAddress === entry.data.completeAddress &&
+                                            selectedAddress?.lat === entry.data.lat &&
+                                            selectedAddress?.lng === entry.data.lng;
+
+                                        return (
+                                            <button
+                                                key={entry.id}
+                                                onClick={() => selectSavedAddress(entry)}
+                                                className={`w-full rounded-lg border px-4 py-4 text-left transition-colors ${isSelected
+                                                    ? "border-emerald-300 bg-emerald-50"
+                                                    : "border-slate-200 bg-white hover:bg-slate-50"
+                                                    }`}
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className={`rounded-lg p-2 ${isSelected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                                                            <MapPin className="h-4 w-4" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-slate-800">
+                                                                {entry.data.address}
+                                                            </p>
+                                                            {entry.data.source === "manual" && (
+                                                                <p className="mt-1 text-xs font-medium text-slate-400">Manual address</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <span className={`text-xs font-semibold ${isSelected ? "text-emerald-700" : "text-slate-400"}`}>
+                                                        {isSelected ? "Selected" : "Use"}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
+                            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                <motion.button
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => {
+                                        setShowAddressSelectorModal(false);
+                                        setShowMapModal(true);
+                                    }}
+                                    className="flex-1 rounded-md border border-emerald-600 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50"
+                                >
+                                    Add Another Address
+                                </motion.button>
+                                <motion.button
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setShowAddressSelectorModal(false)}
+                                    className="flex-1 rounded-md py-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-50"
+                                >
+                                    Close
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
             {/* Map Simulation Modal */}
             <AnimatePresence>
                 {showMapModal && (
@@ -477,10 +678,7 @@ export default function CartDrawer({
                             <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4 w-full text-left">Pin Location</h3>
                             <div className="relative mb-6 h-[min(72vh,40rem)] w-full flex-shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-emerald-50">
                                 <LocationPicker
-                                    onLocationSelect={(selection) => {
-                                        setSelectedAddress(selection);
-                                        setShowMapModal(false);
-                                    }}
+                                    onLocationSelect={saveNewAddressFromCart}
                                     initialValue={selectedAddress ?? savedAddress}
                                 />
                             </div>
