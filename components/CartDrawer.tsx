@@ -174,6 +174,7 @@ export default function CartDrawer({
         setReceiptFileName(file.name);
         setReceiptExtraction(null);
         setReceiptExtractionError(null);
+        setOrderError(null);
         setIsExtractingReceipt(true);
 
         try {
@@ -319,7 +320,16 @@ export default function CartDrawer({
 
             triggerSuccessState();
         } catch (error) {
-            setOrderError(error instanceof Error ? error.message : "Failed to place order");
+            const message = error instanceof Error ? error.message : "Failed to place order";
+            const isDuplicateReceipt = message.toLowerCase().includes("reference number has already been used");
+
+            setOrderError(message);
+
+            if (isDuplicateReceipt) {
+                setReceiptExtractionError("This receipt reference was already used for another order. Please upload a different payment receipt.");
+                setReceiptExtraction(null);
+                setReceiptFileName("");
+            }
         } finally {
             setIsPlacingOrder(false);
         }
@@ -857,6 +867,12 @@ export default function CartDrawer({
                                     {receiptExtractionError && (
                                         <div className="mb-4 w-full rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
                                             {receiptExtractionError}
+                                        </div>
+                                    )}
+
+                                    {orderError && (
+                                        <div className="mb-4 w-full rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                                            {orderError}
                                         </div>
                                     )}
 
