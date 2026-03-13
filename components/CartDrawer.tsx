@@ -844,7 +844,7 @@ export default function CartDrawer({
                                         <Upload className="w-8 h-8 text-blue-600" />
                                     </div>
                                     <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-1 text-center">Upload Receipt</h3>
-                                    <p className="text-slate-500 text-sm mb-6 text-center">Please attach a screenshot of your successful transaction. Grok will extract the payment details for review.</p>
+                                    <p className="text-slate-500 text-sm mb-6 text-center">Please attach a screenshot of your successful transaction. Gemini will extract the payment details for review.</p>
 
                                     <label className="w-full h-32 bg-slate-50 border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50 transition-colors rounded-lg mb-6 flex flex-col items-center justify-center cursor-pointer group">
                                         <Upload className="w-6 h-6 text-slate-400 group-hover:text-emerald-500 mb-2 transition-colors" strokeWidth={2} />

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
-import { extractReceiptWithGrok } from "@/lib/payments/grokReceiptExtraction";
+import { extractReceiptWithGemini } from "@/lib/payments/geminiReceiptExtraction";
 import type { PaymentReceiptProvider } from "@/lib/payments/receiptTypes";
 
 type ExtractReceiptPayload = {
@@ -70,9 +70,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await extractReceiptWithGrok({
+    const result = await extractReceiptWithGemini({
       provider,
-      imageUrl: imageSource,
+      imageDataUrl: imageSource,
     });
 
     if (orderId) {
