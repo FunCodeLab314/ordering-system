@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { SVGProps, useCallback, useEffect, useState } from "react";
+import { type ChangeEvent, SVGProps, useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Minus, MapPin, CreditCard, Banknote, Calendar, CheckCircle2, Truck, Store, Upload, QrCode, Phone } from "lucide-react";
 import Image from "next/image";
@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { placeOrder } from "@/lib/orders/placeOrder";
+import type { PaymentReceiptExtractionResult } from "@/lib/payments/receiptTypes";
 import LocationPicker from "./LocationPicker";
 
 export interface CartItem extends Product {
@@ -78,6 +79,10 @@ export default function CartDrawer({
     const [accountPhone, setAccountPhone] = useState("");
     const [deliveryPhone, setDeliveryPhone] = useState("");
     const [isLoadingDeliveryPhone, setIsLoadingDeliveryPhone] = useState(false);
+    const [receiptFileName, setReceiptFileName] = useState("");
+    const [receiptExtraction, setReceiptExtraction] = useState<PaymentReceiptExtractionResult | null>(null);
+    const [receiptExtractionError, setReceiptExtractionError] = useState<string | null>(null);
+    const [isExtractingReceipt, setIsExtractingReceipt] = useState(false);
 
     const customQuoteTotal = customQuoteCheckout ? customQuoteCheckout.quotedTotal : 0;
     const hasCheckoutItems = cartItems.length > 0 || Boolean(customQuoteCheckout);
@@ -162,6 +167,56 @@ export default function CartDrawer({
         );
     };
 
+    const handleReceiptFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setReceiptFileName(file.name);
+        setReceiptExtraction(null);
+        setReceiptExtractionError(null);
+        setIsExtractingReceipt(true);
+
+        try {
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    if (typeof reader.result === "string") {
+                        resolve(reader.result);
+                        return;
+                    }
+                    reject(new Error("Failed to read the receipt image."));
+                };
+                reader.onerror = () => reject(new Error("Failed to read the receipt image."));
+                reader.readAsDataURL(file);
+            });
+
+            const response = await fetch("/api/payments/extract-receipt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    provider: walletProvider,
+                    imageDataUrl: dataUrl,
+                }),
+            });
+
+            const body = (await response.json()) as {
+                error?: string;
+                extraction?: PaymentReceiptExtractionResult;
+            };
+
+            if (!response.ok || !body.extraction) {
+                throw new Error(body.error ?? "Failed to extract receipt details.");
+            }
+
+            setReceiptExtraction(body.extraction);
+        } catch (error) {
+            setReceiptExtractionError(error instanceof Error ? error.message : "Failed to extract receipt details.");
+        } finally {
+            setIsExtractingReceipt(false);
+            event.target.value = "";
+        }
+    };
+
     const fetchProfile = useCallback(async () => {
         if (!user) return null;
         const supabase = createClient();
@@ -196,6 +251,12 @@ export default function CartDrawer({
         };
     }, [fetchProfile, isOpen, user?.id]);
 
+    useEffect(() => {
+        setReceiptExtraction(null);
+        setReceiptExtractionError(null);
+        setReceiptFileName("");
+    }, [walletProvider]);
+
     const submitOrder = async (method: "COD" | "GCash" | "Maya") => {
         if (!user) return;
         if (!hasCheckoutItems) return;
@@ -214,6 +275,12 @@ export default function CartDrawer({
 
             if (deliveryMode === "delivery" && !resolvedDeliveryPhone) {
                 setOrderError("Please add a working delivery mobile number before placing the order.");
+                setIsPlacingOrder(false);
+                return;
+            }
+
+            if (method !== "COD" && !receiptExtraction) {
+                setOrderError("Please upload your wallet receipt first so we can extract the payment details.");
                 setIsPlacingOrder(false);
                 return;
             }
@@ -242,6 +309,8 @@ export default function CartDrawer({
                 streetAddress: deliveryMode === "delivery" ? selectedAddress?.streetAddress ?? null : null,
                 landmark: deliveryMode === "delivery" ? selectedAddress?.landmark ?? null : null,
                 completeAddress: deliveryMode === "delivery" ? selectedAddress?.completeAddress ?? selectedAddress?.address ?? null : null,
+                paymentProofUrl: null,
+                receiptExtraction: method !== "COD" ? receiptExtraction : null,
                 paymentMethod: method,
                 scheduledDate: null,
                 customerName: profile?.full_name?.trim() || metadataName || user.email || "Customer",
@@ -263,6 +332,7 @@ export default function CartDrawer({
         if (selectedPayment === "online") {
             setShowPaymentModal(true);
             setPaymentStep("qr");
+            setReceiptExtractionError(null);
             return;
         }
 
@@ -774,21 +844,47 @@ export default function CartDrawer({
                                         <Upload className="w-8 h-8 text-blue-600" />
                                     </div>
                                     <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-1 text-center">Upload Receipt</h3>
-                                    <p className="text-slate-500 text-sm mb-6 text-center">Please attach a screenshot of your successful transaction.</p>
+                                    <p className="text-slate-500 text-sm mb-6 text-center">Please attach a screenshot of your successful transaction. Grok will extract the payment details for review.</p>
 
                                     <label className="w-full h-32 bg-slate-50 border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50 transition-colors rounded-lg mb-6 flex flex-col items-center justify-center cursor-pointer group">
                                         <Upload className="w-6 h-6 text-slate-400 group-hover:text-emerald-500 mb-2 transition-colors" strokeWidth={2} />
-                                        <span className="text-sm font-medium text-slate-600 group-hover:text-emerald-700 transition-colors">Tap to select photo</span>
-                                        <input type="file" className="hidden" accept="image/*" />
+                                        <span className="text-sm font-medium text-slate-600 group-hover:text-emerald-700 transition-colors">
+                                            {isExtractingReceipt ? "Extracting payment details..." : receiptFileName || "Tap to select photo"}
+                                        </span>
+                                        <input type="file" className="hidden" accept="image/*" onChange={(event) => void handleReceiptFileChange(event)} />
                                     </label>
+
+                                    {receiptExtractionError && (
+                                        <div className="mb-4 w-full rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                                            {receiptExtractionError}
+                                        </div>
+                                    )}
+
+                                    {receiptExtraction && (
+                                        <div className="mb-4 w-full rounded-lg border border-emerald-100 bg-emerald-50/70 p-4 text-sm text-slate-700">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Extracted Payment Details</p>
+                                            <div className="mt-2 space-y-1">
+                                                <p>Reference: <span className="font-semibold text-slate-900">{receiptExtraction.referenceNumber ?? "Not detected"}</span></p>
+                                                <p>Name: <span className="font-semibold text-slate-900">{receiptExtraction.recipientName ?? "Not detected"}</span></p>
+                                                <p>Mobile: <span className="font-semibold text-slate-900">{receiptExtraction.recipientMobileNumber ?? "Not detected"}</span></p>
+                                                <p>Amount: <span className="font-semibold text-slate-900">{receiptExtraction.amount !== null ? `PHP ${receiptExtraction.amount.toFixed(2)}` : "Not detected"}</span></p>
+                                                <p>Date: <span className="font-semibold text-slate-900">{receiptExtraction.transactionDateText ?? receiptExtraction.transactionTimestamp ?? "Not detected"}</span></p>
+                                            </div>
+                                            {receiptExtraction.needsManualReview && (
+                                                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                                                    Some fields need manual review. You can still submit, but the extracted receipt details should be checked by admin.
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
 
                                     <motion.button
                                         whileTap={{ scale: 0.96 }}
                                         onClick={() => void submitOrder(walletProvider)}
-                                        disabled={isPlacingOrder}
+                                        disabled={isPlacingOrder || isExtractingReceipt}
                                         className="w-full bg-emerald-700 text-white font-bold rounded-md py-4 shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        {isPlacingOrder ? "Submitting..." : "Submit Order"}
+                                        {isExtractingReceipt ? "Extracting..." : isPlacingOrder ? "Submitting..." : "Submit Order"}
                                     </motion.button>
                                 </>
                             )}

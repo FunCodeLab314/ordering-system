@@ -77,3 +77,23 @@ export interface Order {
   created_at: string;
   updated_at: string;
 }
+
+export interface PaymentReceiptExtraction {
+  id: string;
+  order_id: string;
+  provider: PaymentMethod;
+  source_image_url: string | null;
+  extraction_status: "pending" | "completed" | "failed" | "needs_review";
+  reference_number: string | null;
+  recipient_name: string | null;
+  recipient_mobile_number: string | null;
+  amount: number | null;
+  currency: string | null;
+  transaction_date_text: string | null;
+  transaction_timestamp: string | null;
+  extracted_model: string | null;
+  raw_response: unknown;
+  extraction_error: string | null;
+  created_at: string;
+  updated_at: string;
+}

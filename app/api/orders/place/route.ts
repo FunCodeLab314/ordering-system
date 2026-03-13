@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 import { createDeliveryAddressData } from "@/lib/deliveryAddress";
+import type { PaymentReceiptExtractionResult } from "@/lib/payments/receiptTypes";
 
 type PlaceOrderItemInput = {
   product_id: string;
@@ -30,6 +31,8 @@ type PlaceOrderPayload = {
   streetAddress?: string | null;
   landmark?: string | null;
   completeAddress?: string | null;
+  paymentProofUrl?: string | null;
+  receiptExtraction?: PaymentReceiptExtractionResult | null;
   paymentMethod: "COD" | "GCash" | "Maya";
   scheduledDate?: string | null;
   customerName: string;
@@ -254,6 +257,7 @@ export async function POST(req: NextRequest) {
       complete_address: deliveryMode === "Delivery" ? normalizedAddress?.completeAddress ?? null : null,
       payment_method: paymentMethod,
       payment_status: paymentStatus,
+      payment_proof_url: body.paymentProofUrl?.trim() || null,
       status: orderStatus,
       subtotal,
       delivery_fee: deliveryFee,
@@ -273,6 +277,36 @@ export async function POST(req: NextRequest) {
     quantity: item.quantity,
     price: item.price,
   }));
+
+  if (body.receiptExtraction && (paymentMethod === "GCash" || paymentMethod === "Maya")) {
+    const extraction = body.receiptExtraction;
+    const extractionStatus = extraction.needsManualReview ? "needs_review" : "completed";
+
+    const { error: extractionError } = await supabase.from("payment_receipt_extractions").upsert(
+      {
+        order_id: order.id,
+        provider: paymentMethod,
+        source_image_url: body.paymentProofUrl?.trim() || null,
+        extraction_status: extractionStatus,
+        reference_number: extraction.referenceNumber,
+        recipient_name: extraction.recipientName,
+        recipient_mobile_number: extraction.recipientMobileNumber,
+        amount: extraction.amount,
+        currency: extraction.currency,
+        transaction_date_text: extraction.transactionDateText,
+        transaction_timestamp: extraction.transactionTimestamp,
+        extracted_model: null,
+        raw_response: extraction,
+        extraction_error: null,
+      },
+      { onConflict: "order_id" }
+    );
+
+    if (extractionError) {
+      await supabase.from("orders").delete().eq("id", order.id);
+      return NextResponse.json({ error: "Failed to save receipt extraction" }, { status: 500 });
+    }
+  }
 
   const { error: itemsError } = await supabase.from("order_items").insert(orderItemsPayload);
   if (itemsError) {

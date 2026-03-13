@@ -1,3 +1,5 @@
+import type { PaymentReceiptExtractionResult } from "@/lib/payments/receiptTypes";
+
 export type PlaceOrderCartItem = {
   product_id: string;
   quantity: number;
@@ -24,6 +26,8 @@ export type PlaceOrderPayload = {
   streetAddress?: string | null;
   landmark?: string | null;
   completeAddress?: string | null;
+  paymentProofUrl?: string | null;
+  receiptExtraction?: PaymentReceiptExtractionResult | null;
   paymentMethod: "COD" | "GCash" | "Maya";
   scheduledDate: string | null;
   customerName: string;
