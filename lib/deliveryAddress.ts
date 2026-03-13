@@ -18,7 +18,7 @@ export interface DeliveryAddressData {
   completeAddress: string | null;
 }
 
-type DeliveryAddressInput = Partial<DeliveryAddressData> & {
+type DeliveryAddressInput = Omit<Partial<DeliveryAddressData>, "address" | "completeAddress"> & {
   address?: string | null;
   completeAddress?: string | null;
 };
