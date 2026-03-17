@@ -23,6 +23,7 @@ import {
     type DeliveryAddressData,
     type SavedDeliveryAddressEntry,
 } from "@/lib/deliveryAddress";
+import { useToast } from "@/components/shared/Toast";
 import LocationPicker from "./LocationPicker";
 import ProductModal from "./ProductModal";
 
@@ -99,6 +100,7 @@ function formatPeso(value: number) {
 }
 
 export default function DashboardView({ user, cartCount, cartItems, onOpenCart, onAddToCart, onCheckoutCustomQuote, onLogout, shouldRedirectToOrders, onRedirectHandled }: DashboardViewProps) {
+    const { toast } = useToast();
     const { products, loading: productsLoading } = useProducts();
     const { orders, loading: ordersLoading } = useOrders(user);
     const { messages, unreadCount: messagesUnread, markRead, markAllRead } = useOrderMessages(user);
@@ -144,6 +146,12 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
     const [customQuoteQuantity, setCustomQuoteQuantity] = useState("1");
     const [customQuoteDeliveryDate, setCustomQuoteDeliveryDate] = useState("");
     const [customQuoteNotes, setCustomQuoteNotes] = useState("");
+    const seenNotificationIdsRef = useRef<Set<string>>(new Set());
+    const hasHydratedNotificationsRef = useRef(false);
+    const seenSupportMessageIdsRef = useRef<Set<string>>(new Set());
+    const hasHydratedSupportMessagesRef = useRef(false);
+    const seenCustomOrderMessageIdsRef = useRef<Set<string>>(new Set());
+    const hasHydratedCustomOrderMessagesRef = useRef(false);
     const [showCustomQuoteForm, setShowCustomQuoteForm] = useState(false);
     const [submittingCustomQuote, setSubmittingCustomQuote] = useState(false);
     const [orderAnimKey, setOrderAnimKey] = useState(0);
@@ -189,6 +197,72 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         }, 3000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        const nextIds = new Set(messages.map((message) => message.id));
+
+        if (!hasHydratedNotificationsRef.current) {
+            seenNotificationIdsRef.current = nextIds;
+            hasHydratedNotificationsRef.current = true;
+            return;
+        }
+
+        for (const message of messages) {
+            if (message.read || seenNotificationIdsRef.current.has(message.id)) continue;
+
+            toast({
+                type: "info",
+                title: "New notification from Ate Ai",
+                message: message.body,
+            });
+        }
+
+        seenNotificationIdsRef.current = nextIds;
+    }, [messages, toast]);
+
+    useEffect(() => {
+        const nextIds = new Set(supportMessages.map((message) => message.id));
+
+        if (!hasHydratedSupportMessagesRef.current) {
+            seenSupportMessageIdsRef.current = nextIds;
+            hasHydratedSupportMessagesRef.current = true;
+            return;
+        }
+
+        for (const message of supportMessages) {
+            if (message.role !== "store" || seenSupportMessageIdsRef.current.has(message.id)) continue;
+
+            toast({
+                type: "info",
+                title: "New support reply",
+                message: message.text,
+            });
+        }
+
+        seenSupportMessageIdsRef.current = nextIds;
+    }, [supportMessages, toast]);
+
+    useEffect(() => {
+        const nextIds = new Set(customOrderMessages.map((message) => message.id));
+
+        if (!hasHydratedCustomOrderMessagesRef.current) {
+            seenCustomOrderMessageIdsRef.current = nextIds;
+            hasHydratedCustomOrderMessagesRef.current = true;
+            return;
+        }
+
+        for (const message of customOrderMessages) {
+            if (message.role !== "store" || seenCustomOrderMessageIdsRef.current.has(message.id)) continue;
+
+            toast({
+                type: "info",
+                title: "New custom order update",
+                message: message.text,
+            });
+        }
+
+        seenCustomOrderMessageIdsRef.current = nextIds;
+    }, [customOrderMessages, toast]);
 
     useEffect(() => {
         if (!user?.id) return;

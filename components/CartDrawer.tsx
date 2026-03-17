@@ -80,9 +80,12 @@ export default function CartDrawer({
     const [deliveryPhone, setDeliveryPhone] = useState("");
     const [isLoadingDeliveryPhone, setIsLoadingDeliveryPhone] = useState(false);
     const [receiptFileName, setReceiptFileName] = useState("");
+    const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+    const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState<string | null>(null);
     const [receiptExtraction, setReceiptExtraction] = useState<PaymentReceiptExtractionResult | null>(null);
     const [receiptExtractionError, setReceiptExtractionError] = useState<string | null>(null);
     const [isExtractingReceipt, setIsExtractingReceipt] = useState(false);
+    const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
     const customQuoteTotal = customQuoteCheckout ? customQuoteCheckout.quotedTotal : 0;
     const hasCheckoutItems = cartItems.length > 0 || Boolean(customQuoteCheckout);
@@ -171,14 +174,23 @@ export default function CartDrawer({
         const file = event.target.files?.[0];
         if (!file) return;
 
+        const nextPreviewUrl = URL.createObjectURL(file);
+        setReceiptPreviewUrl((current) => {
+            if (current?.startsWith("blob:")) {
+                URL.revokeObjectURL(current);
+            }
+            return nextPreviewUrl;
+        });
         setReceiptFileName(file.name);
+        setUploadedReceiptUrl(null);
         setReceiptExtraction(null);
         setReceiptExtractionError(null);
         setOrderError(null);
         setIsExtractingReceipt(true);
+        setIsUploadingReceipt(true);
 
         try {
-            const dataUrl = await new Promise<string>((resolve, reject) => {
+            const dataUrlPromise = new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => {
                     if (typeof reader.result === "string") {
@@ -191,7 +203,30 @@ export default function CartDrawer({
                 reader.readAsDataURL(file);
             });
 
-            const response = await fetch("/api/payments/extract-receipt", {
+            const uploadFormData = new FormData();
+            uploadFormData.append("file", file);
+
+            const [dataUrl, uploadResponse] = await Promise.all([
+                dataUrlPromise,
+                fetch("/api/payments/upload-receipt", {
+                    method: "POST",
+                    body: uploadFormData,
+                }),
+            ]);
+
+            const uploadBody = (await uploadResponse.json()) as {
+                error?: string;
+                url?: string;
+            };
+
+            if (!uploadResponse.ok || !uploadBody.url) {
+                throw new Error(uploadBody.error ?? "Failed to upload receipt image.");
+            }
+
+            setUploadedReceiptUrl(uploadBody.url);
+            setIsUploadingReceipt(false);
+
+            const extractResponse = await fetch("/api/payments/extract-receipt", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -200,20 +235,22 @@ export default function CartDrawer({
                 }),
             });
 
-            const body = (await response.json()) as {
+            const extractBody = (await extractResponse.json()) as {
                 error?: string;
                 extraction?: PaymentReceiptExtractionResult;
             };
 
-            if (!response.ok || !body.extraction) {
-                throw new Error(body.error ?? "Failed to extract receipt details.");
+            if (!extractResponse.ok || !extractBody.extraction) {
+                throw new Error(extractBody.error ?? "Failed to extract receipt details.");
             }
 
-            setReceiptExtraction(body.extraction);
+            setReceiptExtraction(extractBody.extraction);
         } catch (error) {
+            setUploadedReceiptUrl(null);
             setReceiptExtractionError(error instanceof Error ? error.message : "Failed to extract receipt details.");
         } finally {
             setIsExtractingReceipt(false);
+            setIsUploadingReceipt(false);
             event.target.value = "";
         }
     };
@@ -256,7 +293,22 @@ export default function CartDrawer({
         setReceiptExtraction(null);
         setReceiptExtractionError(null);
         setReceiptFileName("");
+        setUploadedReceiptUrl(null);
+        setReceiptPreviewUrl((current) => {
+            if (current?.startsWith("blob:")) {
+                URL.revokeObjectURL(current);
+            }
+            return null;
+        });
     }, [walletProvider]);
+
+    useEffect(() => {
+        return () => {
+            if (receiptPreviewUrl?.startsWith("blob:")) {
+                URL.revokeObjectURL(receiptPreviewUrl);
+            }
+        };
+    }, [receiptPreviewUrl]);
 
     const submitOrder = async (method: "COD" | "GCash" | "Maya") => {
         if (!user) return;
@@ -282,6 +334,12 @@ export default function CartDrawer({
 
             if (method !== "COD" && !receiptExtraction) {
                 setOrderError("Please upload your wallet receipt first so we can extract the payment details.");
+                setIsPlacingOrder(false);
+                return;
+            }
+
+            if (method !== "COD" && !uploadedReceiptUrl) {
+                setOrderError("Please wait for the receipt image upload to finish before submitting your order.");
                 setIsPlacingOrder(false);
                 return;
             }
@@ -336,7 +394,7 @@ export default function CartDrawer({
                 streetAddress: deliveryMode === "delivery" ? selectedAddress?.streetAddress ?? null : null,
                 landmark: deliveryMode === "delivery" ? selectedAddress?.landmark ?? null : null,
                 completeAddress: deliveryMode === "delivery" ? selectedAddress?.completeAddress ?? selectedAddress?.address ?? null : null,
-                paymentProofUrl: null,
+                paymentProofUrl: method !== "COD" ? uploadedReceiptUrl : null,
                 receiptExtraction: method !== "COD" ? receiptExtraction : null,
                 paymentMethod: method,
                 scheduledDate: null,
@@ -351,8 +409,6 @@ export default function CartDrawer({
 
             if (isDuplicateReceipt) {
                 setReceiptExtractionError("This receipt reference was already used for another order. Please upload a different payment receipt.");
-                setReceiptExtraction(null);
-                setReceiptFileName("");
                 setOrderError(null);
             } else {
                 setOrderError(message);
@@ -883,11 +939,39 @@ export default function CartDrawer({
                                     <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-1 text-center">Upload Receipt</h3>
                                     <p className="text-slate-500 text-sm mb-6 text-center">Please attach a screenshot of your successful transaction. Gemini will extract the payment details for review.</p>
 
-                                    <label className="w-full h-32 bg-slate-50 border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50 transition-colors rounded-lg mb-6 flex flex-col items-center justify-center cursor-pointer group">
-                                        <Upload className="w-6 h-6 text-slate-400 group-hover:text-emerald-500 mb-2 transition-colors" strokeWidth={2} />
-                                        <span className="text-sm font-medium text-slate-600 group-hover:text-emerald-700 transition-colors">
-                                            {isExtractingReceipt ? "Extracting payment details..." : receiptFileName || "Tap to select photo"}
-                                        </span>
+                                    <label className="group mb-6 block w-full cursor-pointer overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 transition-colors hover:border-emerald-500 hover:bg-emerald-50/50">
+                                        {receiptPreviewUrl ? (
+                                            <div className="p-3">
+                                                <div className="relative h-56 w-full overflow-hidden rounded-lg border border-slate-200 bg-white">
+                                                    <Image
+                                                        src={receiptPreviewUrl}
+                                                        alt="Receipt preview"
+                                                        fill
+                                                        unoptimized
+                                                        className="object-contain"
+                                                    />
+                                                </div>
+                                                <div className="mt-3 flex items-center justify-center gap-2 text-sm font-medium text-slate-600">
+                                                    <Upload className="h-4 w-4 text-emerald-600" strokeWidth={2} />
+                                                    {isUploadingReceipt
+                                                        ? "Uploading receipt image..."
+                                                        : isExtractingReceipt
+                                                            ? "Extracting payment details..."
+                                                            : receiptFileName || "Tap to replace photo"}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex h-32 flex-col items-center justify-center">
+                                                <Upload className="mb-2 h-6 w-6 text-slate-400 group-hover:text-emerald-500 transition-colors" strokeWidth={2} />
+                                                <span className="text-sm font-medium text-slate-600 transition-colors group-hover:text-emerald-700">
+                                                    {isUploadingReceipt
+                                                        ? "Uploading receipt image..."
+                                                        : isExtractingReceipt
+                                                            ? "Extracting payment details..."
+                                                            : receiptFileName || "Tap to select photo"}
+                                                </span>
+                                            </div>
+                                        )}
                                         <input type="file" className="hidden" accept="image/*" onChange={(event) => void handleReceiptFileChange(event)} />
                                     </label>
 
@@ -924,10 +1008,16 @@ export default function CartDrawer({
                                     <motion.button
                                         whileTap={{ scale: 0.96 }}
                                         onClick={() => void submitOrder(walletProvider)}
-                                        disabled={isPlacingOrder || isExtractingReceipt}
+                                        disabled={isPlacingOrder || isExtractingReceipt || isUploadingReceipt}
                                         className="w-full bg-emerald-700 text-white font-bold rounded-md py-4 shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        {isExtractingReceipt ? "Extracting..." : isPlacingOrder ? "Submitting..." : "Submit Order"}
+                                        {isUploadingReceipt
+                                            ? "Uploading..."
+                                            : isExtractingReceipt
+                                                ? "Extracting..."
+                                                : isPlacingOrder
+                                                    ? "Submitting..."
+                                                    : "Submit Order"}
                                     </motion.button>
                                 </>
                             )}
