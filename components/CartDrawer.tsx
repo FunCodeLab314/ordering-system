@@ -81,6 +81,7 @@ export default function CartDrawer({
     const [isLoadingDeliveryPhone, setIsLoadingDeliveryPhone] = useState(false);
     const [receiptFileName, setReceiptFileName] = useState("");
     const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+    const [selectedReceiptFile, setSelectedReceiptFile] = useState<File | null>(null);
     const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState<string | null>(null);
     const [receiptExtraction, setReceiptExtraction] = useState<PaymentReceiptExtractionResult | null>(null);
     const [receiptExtractionError, setReceiptExtractionError] = useState<string | null>(null);
@@ -182,15 +183,15 @@ export default function CartDrawer({
             return nextPreviewUrl;
         });
         setReceiptFileName(file.name);
+        setSelectedReceiptFile(file);
         setUploadedReceiptUrl(null);
         setReceiptExtraction(null);
         setReceiptExtractionError(null);
         setOrderError(null);
         setIsExtractingReceipt(true);
-        setIsUploadingReceipt(true);
 
         try {
-            const dataUrlPromise = new Promise<string>((resolve, reject) => {
+            const dataUrl = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => {
                     if (typeof reader.result === "string") {
@@ -202,29 +203,6 @@ export default function CartDrawer({
                 reader.onerror = () => reject(new Error("Failed to read the receipt image."));
                 reader.readAsDataURL(file);
             });
-
-            const uploadFormData = new FormData();
-            uploadFormData.append("file", file);
-
-            const [dataUrl, uploadResponse] = await Promise.all([
-                dataUrlPromise,
-                fetch("/api/payments/upload-receipt", {
-                    method: "POST",
-                    body: uploadFormData,
-                }),
-            ]);
-
-            const uploadBody = (await uploadResponse.json()) as {
-                error?: string;
-                url?: string;
-            };
-
-            if (!uploadResponse.ok || !uploadBody.url) {
-                throw new Error(uploadBody.error ?? "Failed to upload receipt image.");
-            }
-
-            setUploadedReceiptUrl(uploadBody.url);
-            setIsUploadingReceipt(false);
 
             const extractResponse = await fetch("/api/payments/extract-receipt", {
                 method: "POST",
@@ -246,11 +224,11 @@ export default function CartDrawer({
 
             setReceiptExtraction(extractBody.extraction);
         } catch (error) {
+            setSelectedReceiptFile(null);
             setUploadedReceiptUrl(null);
             setReceiptExtractionError(error instanceof Error ? error.message : "Failed to extract receipt details.");
         } finally {
             setIsExtractingReceipt(false);
-            setIsUploadingReceipt(false);
             event.target.value = "";
         }
     };
@@ -293,6 +271,7 @@ export default function CartDrawer({
         setReceiptExtraction(null);
         setReceiptExtractionError(null);
         setReceiptFileName("");
+        setSelectedReceiptFile(null);
         setUploadedReceiptUrl(null);
         setReceiptPreviewUrl((current) => {
             if (current?.startsWith("blob:")) {
@@ -338,12 +317,6 @@ export default function CartDrawer({
                 return;
             }
 
-            if (method !== "COD" && !uploadedReceiptUrl) {
-                setOrderError("Please wait for the receipt image upload to finish before submitting your order.");
-                setIsPlacingOrder(false);
-                return;
-            }
-
             if (method !== "COD") {
                 const walletReceipt = receiptExtraction;
                 const normalizedReference = normalizePaymentReference(walletReceipt?.referenceNumber);
@@ -367,6 +340,44 @@ export default function CartDrawer({
                     setOrderError(null);
                     setIsPlacingOrder(false);
                     return;
+                }
+            }
+
+            let receiptImageUrl = uploadedReceiptUrl;
+            if (method !== "COD" && !receiptImageUrl) {
+                if (!selectedReceiptFile) {
+                    setOrderError("Please select your wallet receipt image first.");
+                    setIsPlacingOrder(false);
+                    return;
+                }
+
+                setIsUploadingReceipt(true);
+
+                try {
+                    const uploadFormData = new FormData();
+                    uploadFormData.append("file", selectedReceiptFile);
+
+                    const uploadResponse = await fetch("/api/payments/upload-receipt", {
+                        method: "POST",
+                        body: uploadFormData,
+                    });
+
+                    const uploadBody = (await uploadResponse.json()) as {
+                        error?: string;
+                        url?: string;
+                    };
+
+                    if (!uploadResponse.ok || !uploadBody.url) {
+                        setReceiptExtractionError(uploadBody.error ?? "Failed to upload receipt image.");
+                        setOrderError(null);
+                        setIsPlacingOrder(false);
+                        return;
+                    }
+
+                    receiptImageUrl = uploadBody.url;
+                    setUploadedReceiptUrl(receiptImageUrl);
+                } finally {
+                    setIsUploadingReceipt(false);
                 }
             }
 
@@ -394,7 +405,7 @@ export default function CartDrawer({
                 streetAddress: deliveryMode === "delivery" ? selectedAddress?.streetAddress ?? null : null,
                 landmark: deliveryMode === "delivery" ? selectedAddress?.landmark ?? null : null,
                 completeAddress: deliveryMode === "delivery" ? selectedAddress?.completeAddress ?? selectedAddress?.address ?? null : null,
-                paymentProofUrl: method !== "COD" ? uploadedReceiptUrl : null,
+                paymentProofUrl: method !== "COD" ? receiptImageUrl : null,
                 receiptExtraction: method !== "COD" ? receiptExtraction : null,
                 paymentMethod: method,
                 scheduledDate: null,
@@ -937,7 +948,7 @@ export default function CartDrawer({
                                         <Upload className="w-8 h-8 text-blue-600" />
                                     </div>
                                     <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-1 text-center">Upload Receipt</h3>
-                                    <p className="text-slate-500 text-sm mb-6 text-center">Please attach a screenshot of your successful transaction. Gemini will extract the payment details for review.</p>
+                                    <p className="text-slate-500 text-sm mb-6 text-center">Please attach a screenshot of your successful transaction. Gemini will extract the payment details for review, and the image will only upload after the receipt passes validation when you submit.</p>
 
                                     <label className="group mb-6 block w-full cursor-pointer overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 transition-colors hover:border-emerald-500 hover:bg-emerald-50/50">
                                         {receiptPreviewUrl ? (
