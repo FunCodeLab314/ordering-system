@@ -61,6 +61,7 @@ interface DashboardViewProps {
 }
 
 type DashboardTab = "home" | "orders" | "profile" | "notifications" | "chat" | "custom-order" | "settings";
+type ChatScreen = "inbox" | "support" | "custom-order";
 
 interface ProfileRecord {
     full_name: string | null;
@@ -163,6 +164,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
     const [submittingCustomQuote, setSubmittingCustomQuote] = useState(false);
     const [orderAnimKey, setOrderAnimKey] = useState(0);
     const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
+    const [chatScreen, setChatScreen] = useState<ChatScreen>("inbox");
     const hasLoadedSavedPlaceRef = useRef(false);
     const addToCartToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const supportChatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -188,6 +190,8 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
             return 0;
         })
         .slice(0, 4);
+    const latestSupportMessage = supportMessages[supportMessages.length - 1] ?? null;
+    const latestCustomOrderMessage = customOrderMessages[customOrderMessages.length - 1] ?? null;
 
     useEffect(() => {
         if (shouldRedirectToOrders) {
@@ -475,7 +479,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
     };
 
     useEffect(() => {
-        if (activeTab !== "chat" || !supportChatScrollRef.current) return;
+        if (activeTab !== "chat" || chatScreen !== "support" || !supportChatScrollRef.current) return;
 
         const frameId = window.requestAnimationFrame(() => {
             supportChatScrollRef.current?.scrollTo({
@@ -485,10 +489,10 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         });
 
         return () => window.cancelAnimationFrame(frameId);
-    }, [activeTab, supportMessages]);
+    }, [activeTab, chatScreen, supportMessages]);
 
     useEffect(() => {
-        if (activeTab !== "custom-order" || !customOrderChatScrollRef.current) return;
+        if (activeTab !== "chat" || chatScreen !== "custom-order" || !customOrderChatScrollRef.current) return;
 
         const frameId = window.requestAnimationFrame(() => {
             customOrderChatScrollRef.current?.scrollTo({
@@ -498,7 +502,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         });
 
         return () => window.cancelAnimationFrame(frameId);
-    }, [activeTab, customOrderMessages, customOrderActiveQuote]);
+    }, [activeTab, chatScreen, customOrderMessages, customOrderActiveQuote]);
 
     const handleSendSupportMessage = async () => {
         const trimmed = chatMessage.trim();
@@ -891,7 +895,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             { id: "home", label: "Home", icon: Store },
                             { id: "orders", label: "Orders", icon: ReceiptText },
                             { id: "notifications", label: "Notifications", icon: Bell },
-                            { id: "chat", label: "Support / Chat", icon: Headset },
+                            { id: "chat", label: "Messages", icon: MessageCircle },
                             { id: "profile", label: "Account", icon: User, showDot: needsProfileCompletion },
                         ].map((item) => {
                             const isActive = activeTab === item.id || (item.id === "profile" && activeTab === "settings");
@@ -900,6 +904,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                                     key={item.id}
                                     onClick={() => {
                                         setActiveTab(item.id as typeof activeTab);
+                                        if (item.id === "chat") setChatScreen("inbox");
                                         if (item.id === "orders") setOrderAnimKey(prev => prev + 1);
                                     }}
                                     className={`w-full flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors text-sm font-medium border-l-2 ${isActive
@@ -983,7 +988,10 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             <div className="w-[1px] h-6 bg-slate-200 mx-0.5 shrink-0"></div>
                             <motion.button
                                 whileTap={{ scale: 0.96 }}
-                                onClick={() => setActiveTab("custom-order")}
+                                onClick={() => {
+                                    setActiveTab("chat");
+                                    setChatScreen("custom-order");
+                                }}
                                 className="whitespace-nowrap rounded-lg px-4 py-2 font-semibold text-sm transition-colors border border-emerald-700 bg-emerald-50 text-emerald-800 flex items-center gap-1.5 hover:bg-emerald-100 shrink-0"
                             >
                                 <MessageCircle className="w-4 h-4" />
@@ -1662,14 +1670,69 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                 </section>
             )}
 
-            {activeTab === "chat" && (
+            {activeTab === "chat" && chatScreen === "inbox" && (
+                <section className="mx-auto min-h-[calc(100dvh-4rem)] w-full max-w-xl bg-slate-50 px-4 py-4 pb-24">
+                    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                        <div className="border-b border-slate-100 px-5 py-4">
+                            <p className="text-lg font-bold text-slate-900">Messages</p>
+                            <p className="mt-1 text-sm text-slate-500">Open your support or custom-order conversation here.</p>
+                        </div>
+
+                        <button
+                            onClick={() => setChatScreen("custom-order")}
+                            className="flex w-full items-center gap-3 border-b border-slate-100 px-5 py-4 text-left transition-colors hover:bg-slate-50"
+                        >
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+                                <span className="text-sm font-bold">CO</span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-base font-bold text-slate-900">Custom order</p>
+                                        <p className="truncate text-sm text-slate-500">
+                                            {latestCustomOrderMessage?.text ?? "Start chatting with Ate Ai about your custom request."}
+                                        </p>
+                                    </div>
+                                    <span className="shrink-0 pt-0.5 text-[11px] font-medium text-slate-400">
+                                        {latestCustomOrderMessage?.time ?? ""}
+                                    </span>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => setChatScreen("support")}
+                            className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-slate-50"
+                        >
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-800">
+                                <span className="text-sm font-bold">CS</span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-base font-bold text-slate-900">Support</p>
+                                        <p className="truncate text-sm text-slate-500">
+                                            {latestSupportMessage?.text ?? "Need help? Chat with customer support here."}
+                                        </p>
+                                    </div>
+                                    <span className="shrink-0 pt-0.5 text-[11px] font-medium text-slate-400">
+                                        {latestSupportMessage?.time ?? ""}
+                                    </span>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+                </section>
+            )}
+
+            {activeTab === "chat" && chatScreen === "support" && (
                 <section className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-xl flex-col overflow-hidden bg-[#eef3f8] lg:min-h-screen">
                     <div className="sticky top-0 z-20 border-b border-emerald-900/70 bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 px-4 pb-4 pt-4 text-white shadow-lg">
                         <div className="flex items-center gap-3">
                             <button
-                                onClick={() => setActiveTab("home")}
+                                onClick={() => setChatScreen("inbox")}
                                 className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/14 transition-colors hover:bg-white/20"
-                                aria-label="Back to home"
+                                aria-label="Back to messages"
                             >
                                 <ArrowLeft className="h-5 w-5" />
                             </button>
@@ -1763,14 +1826,14 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                 </section>
             )}
 
-            {activeTab === "custom-order" && (
+            {activeTab === "chat" && chatScreen === "custom-order" && (
                 <section className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-xl flex-col overflow-hidden bg-[#f7f6fb] lg:min-h-screen">
                     <div className="sticky top-0 z-20 border-b border-slate-900/10 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-900 px-4 pb-4 pt-4 text-white shadow-lg">
                         <div className="flex items-center gap-3">
                             <button
-                                onClick={() => setActiveTab("home")}
+                                onClick={() => setChatScreen("inbox")}
                                 className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/12 transition-colors hover:bg-white/20"
-                                aria-label="Go back to menu"
+                                aria-label="Back to messages"
                             >
                                 <ArrowLeft className="h-5 w-5" />
                             </button>
@@ -1998,7 +2061,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                     {[
                         { id: "home" as DashboardTab, label: "Home", icon: Store },
                         { id: "orders" as DashboardTab, label: "Orders", icon: ReceiptText },
-                        { id: "chat" as DashboardTab, label: "Support", icon: Headset },
+                        { id: "chat" as DashboardTab, label: "Messages", icon: MessageCircle },
                         { id: "profile" as DashboardTab, label: "Account", icon: User, showDot: needsProfileCompletion },
                     ].map((tab) => {
                         const isActive = activeTab === tab.id || (tab.id === "profile" && activeTab === "settings");
@@ -2008,6 +2071,9 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                                 whileTap={{ scale: 0.92 }}
                                 onClick={() => {
                                     setActiveTab(tab.id);
+                                    if (tab.id === "chat") {
+                                        setChatScreen("inbox");
+                                    }
                                     if (tab.id === "orders") {
                                         setOrderAnimKey(prev => prev + 1);
                                     }
