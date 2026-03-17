@@ -40,7 +40,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(() => ({ push }), [push]);
-  const stackedItems = [...items].reverse();
+  const stackedItems = [...items].reverse().slice(0, 3);
 
   return (
     <ToastContext.Provider value={value}>
@@ -52,15 +52,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               key={item.id}
               initial={{ opacity: 0, y: -20, scale: 0.96 }}
               animate={{
-                opacity: Math.max(1 - index * 0.12, 0.55),
-                y: index === 0 ? 0 : -(index * 18),
-                x: index * 6,
-                scale: 1 - index * 0.03,
+                opacity: Math.max(1 - index * 0.14, 0.6),
+                y: index === 0 ? 0 : -(index * 14),
+                x: index * 4,
+                scale: 1 - index * 0.025,
               }}
               exit={{ opacity: 0, y: -20, scale: 0.96 }}
               transition={{ type: "spring", stiffness: 260, damping: 24 }}
               style={{ zIndex: stackedItems.length - index }}
-              className={`pointer-events-auto w-full flex items-start gap-3 rounded-2xl border p-3 shadow-lg ${index > 0 ? "-mt-16" : ""} ${styleMap[item.type]}`}
+              className={`pointer-events-auto w-full flex items-start gap-3 rounded-2xl border p-3 shadow-lg ${index > 0 ? "-mt-14" : ""} ${styleMap[item.type]}`}
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{item.title}</p>
