@@ -40,19 +40,27 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(() => ({ push }), [push]);
+  const stackedItems = [...items].reverse();
 
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed left-1/2 top-4 z-[120] flex w-[min(calc(100vw-1.5rem),26rem)] -translate-x-1/2 flex-col gap-3 sm:top-5">
+      <div className="pointer-events-none fixed left-1/2 top-4 z-[120] w-[min(calc(100vw-1.5rem),26rem)] -translate-x-1/2 sm:top-5">
         <AnimatePresence>
-          {items.map((item) => (
+          {stackedItems.map((item, index) => (
             <motion.div
               key={item.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className={`pointer-events-auto w-full flex items-start gap-3 rounded-2xl border p-3 shadow-lg ${styleMap[item.type]}`}
+              initial={{ opacity: 0, y: -20, scale: 0.96 }}
+              animate={{
+                opacity: Math.max(1 - index * 0.12, 0.55),
+                y: index === 0 ? 0 : -(index * 18),
+                x: index * 6,
+                scale: 1 - index * 0.03,
+              }}
+              exit={{ opacity: 0, y: -20, scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 260, damping: 24 }}
+              style={{ zIndex: stackedItems.length - index }}
+              className={`pointer-events-auto w-full flex items-start gap-3 rounded-2xl border p-3 shadow-lg ${index > 0 ? "-mt-16" : ""} ${styleMap[item.type]}`}
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{item.title}</p>
