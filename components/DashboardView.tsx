@@ -104,7 +104,14 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
     const { products, loading: productsLoading } = useProducts();
     const { orders, loading: ordersLoading } = useOrders(user);
     const { messages, unreadCount: messagesUnread, markRead, markAllRead } = useOrderMessages(user);
-    const { messages: supportMessages, loading: supportLoading, sending: supportSending, sendMessage: sendSupportMessage } = useSupportChat(user);
+    const {
+        threadId: supportThreadId,
+        messages: supportMessages,
+        loading: supportLoading,
+        sending: supportSending,
+        error: supportError,
+        sendMessage: sendSupportMessage,
+    } = useSupportChat(user);
     const {
         threadStatus: customOrderThreadStatus,
         messages: customOrderMessages,
@@ -158,6 +165,8 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
     const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
     const hasLoadedSavedPlaceRef = useRef(false);
     const addToCartToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const supportChatScrollRef = useRef<HTMLDivElement | null>(null);
+    const customOrderChatScrollRef = useRef<HTMLDivElement | null>(null);
 
     const displayName =
         profileFullName.trim() ||
@@ -464,6 +473,32 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
         setShowToast(false);
         onOpenCart();
     };
+
+    useEffect(() => {
+        if (activeTab !== "chat" || !supportChatScrollRef.current) return;
+
+        const frameId = window.requestAnimationFrame(() => {
+            supportChatScrollRef.current?.scrollTo({
+                top: supportChatScrollRef.current.scrollHeight,
+                behavior: "smooth",
+            });
+        });
+
+        return () => window.cancelAnimationFrame(frameId);
+    }, [activeTab, supportMessages]);
+
+    useEffect(() => {
+        if (activeTab !== "custom-order" || !customOrderChatScrollRef.current) return;
+
+        const frameId = window.requestAnimationFrame(() => {
+            customOrderChatScrollRef.current?.scrollTo({
+                top: customOrderChatScrollRef.current.scrollHeight,
+                behavior: "smooth",
+            });
+        });
+
+        return () => window.cancelAnimationFrame(frameId);
+    }, [activeTab, customOrderMessages, customOrderActiveQuote]);
 
     const handleSendSupportMessage = async () => {
         const trimmed = chatMessage.trim();
@@ -1628,108 +1663,180 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
             )}
 
             {activeTab === "chat" && (
-                <section className="max-w-xl mx-auto bg-slate-50 h-[calc(100vh-80px-70px)] flex flex-col pt-0 pb-0">
-                    <div className="bg-emerald-700 p-4 border-b border-emerald-800 flex items-center gap-3 z-10 shadow-sm text-white">
-                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
-                            <Leaf className="w-5 h-5 text-white" strokeWidth={1.5} />
-                        </div>
-                        <div>
-                            <h3 className="font-bold">Ate Ai&apos;s Support</h3>
-                            <div className="flex items-center gap-1.5 text-xs text-emerald-100">
-                                <span className="w-2 h-2 rounded-full bg-green-400"></span> Online
+                <section className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-xl flex-col overflow-hidden bg-[#eef3f8] lg:min-h-screen">
+                    <div className="sticky top-0 z-20 border-b border-emerald-900/70 bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 px-4 pb-4 pt-4 text-white shadow-lg">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setActiveTab("home")}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/14 transition-colors hover:bg-white/20"
+                                aria-label="Back to home"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </button>
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/18 shadow-inner shadow-white/10">
+                                <Headset className="h-5 w-5" strokeWidth={1.8} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <h3 className="truncate text-base font-bold">Customer Support</h3>
+                                <p className="mt-0.5 text-xs text-emerald-50/90">
+                                    {supportThreadId ? "Your chat is saved here even if you leave the app." : "Start a support conversation with Ate Ai."}
+                                </p>
                             </div>
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+8.5rem)] md:pb-32 flex flex-col gap-4">
+
+                    <div
+                        ref={supportChatScrollRef}
+                        className="flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+8.75rem)]"
+                    >
+                        <div className="mx-auto max-w-[80%] rounded-2xl bg-white/90 px-4 py-3 text-center text-xs font-medium text-slate-500 shadow-sm ring-1 ring-slate-200/70">
+                            Messages from customer support will stay here, so you can leave and continue later.
+                        </div>
+
                         {supportLoading ? (
-                            <div className="text-center text-sm font-medium text-slate-400">Loading messages...</div>
+                            <div className="py-10 text-center text-sm font-medium text-slate-400">Loading messages...</div>
                         ) : supportMessages.length === 0 ? (
-                            <div className="text-center text-sm font-medium text-slate-400">No messages yet. Start the conversation.</div>
+                            <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 px-5 py-8 text-center shadow-sm">
+                                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                                    <MessageCircle className="h-6 w-6" strokeWidth={1.8} />
+                                </div>
+                                <p className="text-sm font-semibold text-slate-800">No messages yet</p>
+                                <p className="mt-1 text-sm leading-relaxed text-slate-500">Ask about orders, payments, delivery, or any concern and we&apos;ll reply here.</p>
+                            </div>
                         ) : (
                             supportMessages.map((message) => (
-                                <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                                    <div className={`max-w-[85%] rounded-lg p-3 shadow-sm ${message.role === "user" ? "bg-emerald-600 text-white rounded-tr-sm" : "bg-white border border-slate-100 text-slate-800 rounded-tl-sm"}`}>
-                                        <p className="text-sm">{message.text}</p>
-                                        <span className={`text-[10px] block mt-1 ${message.role === "user" ? "text-emerald-200 text-right" : "text-slate-400"}`}>{message.time}</span>
+                                <div key={message.id} className={`flex items-end gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                                    {message.role === "store" && (
+                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100">
+                                            <Leaf className="h-4 w-4" strokeWidth={1.8} />
+                                        </div>
+                                    )}
+                                    <div
+                                        className={`max-w-[82%] rounded-[22px] px-4 py-3 shadow-sm ${message.role === "user"
+                                            ? "rounded-br-md bg-emerald-700 text-white"
+                                            : "rounded-bl-md border border-slate-200 bg-white text-slate-800"
+                                            }`}
+                                    >
+                                        {message.role === "store" && (
+                                            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700">Ate Ai Support</p>
+                                        )}
+                                        <p className="text-sm leading-relaxed">{message.text}</p>
+                                        <span className={`mt-1.5 block text-[11px] ${message.role === "user" ? "text-emerald-100 text-right" : "text-slate-400"}`}>{message.time}</span>
                                     </div>
                                 </div>
                             ))
                         )}
+
+                        {supportError && (
+                            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 shadow-sm">
+                                {supportError}
+                            </div>
+                        )}
                     </div>
-                    <div className="p-4 border-t border-slate-100 bg-white flex items-center gap-2 sticky bottom-[calc(env(safe-area-inset-bottom)+4rem)] sm:bottom-0 z-20">
-                        <input
-                            type="text"
-                            placeholder="Type a message..."
-                            value={chatMessage}
-                            onChange={(e) => setChatMessage(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && chatMessage.trim()) {
-                                    void handleSendSupportMessage();
-                                }
-                            }}
-                            className="flex-1 bg-slate-100 border-transparent rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:bg-white transition-all placeholder:text-slate-400"
-                        />
-                        <motion.button
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => void handleSendSupportMessage()}
-                            disabled={!chatMessage.trim() || supportSending}
-                            className="w-11 h-11 bg-emerald-700 rounded-lg flex items-center justify-center shrink-0 hover:bg-emerald-800 transition-colors shadow-sm shadow-emerald-700/20 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            <Send className="w-4 h-4 text-white ml-0.5" strokeWidth={2} />
-                        </motion.button>
+
+                    <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-20 border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur md:bottom-0">
+                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
+                            <div className="flex items-end gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Type your message to support..."
+                                    value={chatMessage}
+                                    onChange={(e) => setChatMessage(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && chatMessage.trim()) {
+                                            void handleSendSupportMessage();
+                                        }
+                                    }}
+                                    className="min-h-11 flex-1 rounded-2xl border-0 bg-transparent px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                                />
+                                <motion.button
+                                    whileTap={{ scale: 0.92 }}
+                                    onClick={() => void handleSendSupportMessage()}
+                                    disabled={!chatMessage.trim() || supportSending}
+                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-white shadow-sm transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <Send className="h-4 w-4 translate-x-[1px]" strokeWidth={2} />
+                                </motion.button>
+                            </div>
+                        </div>
                     </div>
                 </section>
             )}
 
             {activeTab === "custom-order" && (
-                <section className="block max-w-xl mx-auto bg-slate-50 h-[calc(100vh-80px)] md:h-[calc(100vh-80px-70px)] flex flex-col pt-0 pb-0">
-                    <div className="bg-emerald-800 p-4 border-b border-emerald-900 flex items-center gap-3 z-10 shadow-sm text-white">
-                        <button
-                            onClick={() => setActiveTab("home")}
-                            className="hidden lg:flex p-2 -ml-2 mr-1 hover:bg-emerald-700/50 rounded-lg transition-colors"
-                            aria-label="Go back to menu"
-                        >
-                            <ArrowLeft className="w-5 h-5 text-white" />
-                        </button>
-                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
-                            <Store className="w-5 h-5 text-white" strokeWidth={1.5} />
-                        </div>
-                        <div className="flex-1">
-                            <h3 className="font-bold">Custom Order Request</h3>
-                            <div className="flex items-center gap-1.5 text-xs text-emerald-100">
-                                Let&apos;s discuss your special request!
+                <section className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-xl flex-col overflow-hidden bg-[#f7f6fb] lg:min-h-screen">
+                    <div className="sticky top-0 z-20 border-b border-slate-900/10 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-900 px-4 pb-4 pt-4 text-white shadow-lg">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setActiveTab("home")}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/12 transition-colors hover:bg-white/20"
+                                aria-label="Go back to menu"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </button>
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/14 shadow-inner shadow-white/10">
+                                <Store className="h-5 w-5" strokeWidth={1.8} />
                             </div>
+                            <div className="min-w-0 flex-1">
+                                <h3 className="truncate text-base font-bold">Custom Order Chat</h3>
+                                <p className="mt-0.5 text-xs text-slate-200/90">Talk with Ate Ai about your special order like a normal chat.</p>
+                            </div>
+                            {customOrderThreadStatus && (
+                                <span className="rounded-full bg-white/14 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                                    {customOrderThreadStatus}
+                                </span>
+                            )}
                         </div>
-                        {customOrderThreadStatus && (
-                            <span className="rounded-full bg-white/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
-                                {customOrderThreadStatus}
-                            </span>
-                        )}
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+10.5rem)] flex flex-col gap-4">
-                        <div className="flex justify-start">
-                            <div className="max-w-[85%] rounded-lg p-3 shadow-sm bg-white border border-slate-100 text-slate-800 rounded-tl-sm">
-                                <p className="text-sm font-semibold mb-2">Welcome to Custom Orders!</p>
-                                <p className="text-sm text-slate-600">Please let us know the details of your request (e.g., specific flavors, bulk quanties, dietary restrictions).</p>
-                                <span className="text-[10px] block mt-2 text-slate-400">Just now</span>
+
+                    <div
+                        ref={customOrderChatScrollRef}
+                        className="flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+10.75rem)]"
+                    >
+                        <div className="flex items-end gap-2 justify-start">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100">
+                                <Store className="h-4 w-4" strokeWidth={1.8} />
+                            </div>
+                            <div className="max-w-[84%] rounded-[22px] rounded-bl-md border border-slate-200 bg-white px-4 py-3 text-slate-800 shadow-sm">
+                                <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700">Ate Ai Custom Orders</p>
+                                <p className="text-sm leading-relaxed">Share your design, flavor, size, quantity, or preferred date. This chat stays saved so you can come back anytime.</p>
                             </div>
                         </div>
+
                         {customOrderLoading ? (
-                            <div className="text-center text-sm font-medium text-slate-400">Loading conversation...</div>
+                            <div className="py-10 text-center text-sm font-medium text-slate-400">Loading conversation...</div>
                         ) : customOrderMessages.length === 0 ? (
-                            <div className="text-center text-sm font-medium text-slate-400">No custom-order messages yet.</div>
+                            <div className="rounded-3xl border border-dashed border-slate-300 bg-white/85 px-5 py-8 text-center shadow-sm">
+                                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                                    <MessageCircle className="h-6 w-6" strokeWidth={1.8} />
+                                </div>
+                                <p className="text-sm font-semibold text-slate-800">No custom order messages yet</p>
+                                <p className="mt-1 text-sm leading-relaxed text-slate-500">Send your first message and Ate Ai can respond here just like a messenger chat.</p>
+                            </div>
                         ) : (
                             customOrderMessages.map((message) => (
-                                <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                                    <div className={`max-w-[85%] rounded-lg p-3 shadow-sm ${message.role === "user" ? "bg-emerald-600 text-white rounded-tr-sm" : "bg-white border border-slate-100 text-slate-800 rounded-tl-sm"}`}>
-                                        <p className="text-sm">{message.text}</p>
-                                        <span className={`text-[10px] block mt-1 ${message.role === "user" ? "text-emerald-200 text-right" : "text-slate-400"}`}>{message.time}</span>
+                                <div key={message.id} className={`flex items-end gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                                    {message.role === "store" && (
+                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
+                                            <Store className="h-4 w-4" strokeWidth={1.8} />
+                                        </div>
+                                    )}
+                                    <div className={`max-w-[82%] rounded-[22px] px-4 py-3 shadow-sm ${message.role === "user"
+                                        ? "rounded-br-md bg-emerald-700 text-white"
+                                        : "rounded-bl-md border border-slate-200 bg-white text-slate-800"
+                                        }`}>
+                                        {message.role === "store" && (
+                                            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-700">Ate Ai</p>
+                                        )}
+                                        <p className="text-sm leading-relaxed">{message.text}</p>
+                                        <span className={`mt-1.5 block text-[11px] ${message.role === "user" ? "text-emerald-100 text-right" : "text-slate-400"}`}>{message.time}</span>
                                     </div>
                                 </div>
                             ))
                         )}
+
                         {customOrderActiveQuote && (
-                            <div className="rounded-xl border border-emerald-100 bg-white p-3 shadow-sm">
+                            <div className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
                                 <div className="flex items-center justify-between gap-2">
                                     <p className="text-xs font-bold uppercase tracking-wide text-slate-900">{customOrderActiveQuote.title}</p>
                                     <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700">
@@ -1849,33 +1956,35 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             </div>
                         )}
                         {customOrderError && (
-                            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-600">
+                            <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-600 shadow-sm">
                                 {customOrderError}
                             </div>
                         )}
                     </div>
-                    <div className="p-4 border-t border-slate-100 bg-white flex flex-col gap-3 sticky bottom-[calc(env(safe-area-inset-bottom)+4rem)] md:bottom-0 z-20">
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="text"
-                                placeholder="Describe your custom order..."
-                                value={customOrderMessage}
-                                onChange={(e) => setCustomOrderMessage(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && customOrderMessage.trim()) {
-                                        void handleSendCustomOrderMessage();
-                                    }
-                                }}
-                                className="flex-1 bg-slate-100 border-transparent rounded-md px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:bg-white transition-all placeholder:text-slate-400"
-                            />
-                            <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => void handleSendCustomOrderMessage()}
-                                disabled={!customOrderMessage.trim() || customOrderSending}
-                                className="w-12 h-12 bg-emerald-800 rounded-xl flex items-center justify-center shrink-0 hover:bg-emerald-900 transition-colors shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                <Send className="w-5 h-5 text-white ml-0.5" strokeWidth={1.5} />
-                            </motion.button>
+                    <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-20 border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur md:bottom-0">
+                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
+                            <div className="flex items-end gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Send a message about your custom order..."
+                                    value={customOrderMessage}
+                                    onChange={(e) => setCustomOrderMessage(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && customOrderMessage.trim()) {
+                                            void handleSendCustomOrderMessage();
+                                        }
+                                    }}
+                                    className="min-h-11 flex-1 rounded-2xl border-0 bg-transparent px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                                />
+                                <motion.button
+                                    whileTap={{ scale: 0.92 }}
+                                    onClick={() => void handleSendCustomOrderMessage()}
+                                    disabled={!customOrderMessage.trim() || customOrderSending}
+                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-white shadow-sm transition-colors hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <Send className="h-4 w-4 translate-x-[1px]" strokeWidth={1.8} />
+                                </motion.button>
+                            </div>
                         </div>
                     </div>
                 </section>
