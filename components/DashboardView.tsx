@@ -1726,8 +1726,8 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
             )}
 
             {activeTab === "chat" && chatScreen === "support" && (
-                <section className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-xl flex-col overflow-hidden bg-[#eef3f8] lg:min-h-screen">
-                    <div className="sticky top-0 z-20 border-b border-emerald-900/70 bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 px-4 pb-4 pt-4 text-white shadow-lg">
+                <section className="mx-auto flex h-[calc(100dvh-5rem-4rem-env(safe-area-inset-bottom))] min-h-0 w-full max-w-xl flex-col overflow-hidden bg-[#eef3f8] lg:h-[calc(100vh-5rem)]">
+                    <div className="shrink-0 border-b border-emerald-900/70 bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 px-4 pb-4 pt-4 text-white shadow-lg">
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setChatScreen("inbox")}
@@ -1750,7 +1750,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
 
                     <div
                         ref={supportChatScrollRef}
-                        className="flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+8.75rem)]"
+                        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"
                     >
                         <div className="mx-auto max-w-[80%] rounded-2xl bg-white/90 px-4 py-3 text-center text-xs font-medium text-slate-500 shadow-sm ring-1 ring-slate-200/70">
                             Messages from customer support will stay here, so you can leave and continue later.
@@ -1797,7 +1797,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                         )}
                     </div>
 
-                    <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-20 border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur md:bottom-0">
+                    <div className="shrink-0 border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur">
                         <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
                             <div className="flex items-end gap-2">
                                 <input
@@ -1827,8 +1827,8 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
             )}
 
             {activeTab === "chat" && chatScreen === "custom-order" && (
-                <section className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-xl flex-col overflow-hidden bg-[#f7f6fb] lg:min-h-screen">
-                    <div className="sticky top-0 z-20 border-b border-slate-900/10 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-900 px-4 pb-4 pt-4 text-white shadow-lg">
+                <section className="mx-auto flex h-[calc(100dvh-5rem-4rem-env(safe-area-inset-bottom))] min-h-0 w-full max-w-xl flex-col overflow-hidden bg-[#f7f6fb] lg:h-[calc(100vh-5rem)]">
+                    <div className="shrink-0 border-b border-slate-900/10 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-900 px-4 pb-4 pt-4 text-white shadow-lg">
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setChatScreen("inbox")}
@@ -1854,7 +1854,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
 
                     <div
                         ref={customOrderChatScrollRef}
-                        className="flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+10.75rem)]"
+                        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"
                     >
                         <div className="flex items-end gap-2 justify-start">
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100">
@@ -2024,7 +2024,7 @@ export default function DashboardView({ user, cartCount, cartItems, onOpenCart, 
                             </div>
                         )}
                     </div>
-                    <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-20 border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur md:bottom-0">
+                    <div className="shrink-0 border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur">
                         <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
                             <div className="flex items-end gap-2">
                                 <input
